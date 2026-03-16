@@ -1,0 +1,8 @@
+{
+  "name": "GenericMed",
+  "description": "Smart Medicine Price Checker for finding affordable generic alternatives from prescriptions.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
