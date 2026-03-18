@@ -46,12 +46,19 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchPrices() {
+    async function fetchPrices(retries = 3, delay = 1000) {
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
         const response = await ai.models.generateContent({
           model: "gemini-3-flash-preview",
-          contents: `Find online pharmacy prices and purchase links for ${medicineName}. For each pharmacy, provide their official website domain (e.g., "1mg.com") and a direct, publicly accessible URL to their official logo. If an official logo is not available, return an empty string.`,
+          contents: `Find online pharmacy prices and purchase links for ${medicineName}. For each pharmacy, provide:
+1. The pharmacy name.
+2. The price.
+3. The purchase link.
+4. The official website domain (e.g., "1mg.com").
+5. A direct, high-quality, publicly accessible URL to their official logo.
+
+If you cannot find a direct logo URL, you MUST provide the official website domain.`,
           config: {
             tools: [{ googleSearch: {} }],
             responseMimeType: "application/json",
@@ -66,17 +73,23 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
                   logoUrl: { type: Type.STRING },
                   domain: { type: Type.STRING }
                 },
-                required: ["pharmacy", "price", "link"]
+                required: ["pharmacy", "price", "link", "domain"]
               }
             }
           },
         });
         
         const data = JSON.parse(response.text || "[]");
+        console.log("Pharmacy data:", data);
         setPrices(data);
+        setLoading(false);
       } catch (err: any) {
+        if (err.message.includes('429') && retries > 0) {
+          console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchPrices(retries - 1, delay * 2);
+        }
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     }
@@ -470,7 +483,7 @@ export function Results() {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Price Comparison Breakdown</h3>
           </div>
           
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full min-w-0 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={results.map(r => ({
@@ -550,7 +563,7 @@ export function Results() {
               <PieChartIcon className="w-5 h-5 text-emerald-500" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Cost Distribution</h3>
             </div>
-            <div className="h-[220px] w-full relative">
+            <div className="h-[220px] w-full relative min-w-0 min-h-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
