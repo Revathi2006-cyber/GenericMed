@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, IndianRupee, MapPin, Share2, FileDown, ShoppingCart, ExternalLink, Loader2, AlertTriangle, Activity, Mail, MessageCircle, Twitter, Copy, X, BarChart3, PieChart as PieChartIcon, Filter, SlidersHorizontal, ArrowLeftRight, Check } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, IndianRupee, MapPin, Share2, FileDown, ShoppingCart, ExternalLink, Loader2, AlertTriangle, Activity, Mail, MessageCircle, Twitter, Copy, X, BarChart3, PieChart as PieChartIcon, Filter, SlidersHorizontal, ArrowLeftRight, Check, Store } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import jsPDF from 'jspdf';
 import { 
@@ -18,6 +18,12 @@ import {
 } from 'recharts';
 import { GoogleGenAI, Type } from "@google/genai";
 
+function PharmacyLogo({ url, name }: { url?: string, name: string }) {
+  const [error, setError] = useState(false);
+  if (!url || error) return <Store className="w-6 h-6 text-slate-400" />;
+  return <img src={url} alt={name} className="w-full h-full object-contain" referrerPolicy="no-referrer" onError={() => setError(true)} />;
+}
+
 function RealTimePrices({ medicineName }: { medicineName: string }) {
   const [prices, setPrices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +35,7 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
         const response = await ai.models.generateContent({
           model: "gemini-3-flash-preview",
-          contents: `Find online pharmacy prices and purchase links for ${medicineName}.`,
+          contents: `Find online pharmacy prices and purchase links for ${medicineName}. For each pharmacy, provide a direct, publicly accessible URL to their official logo. If an official logo is not available, return an empty string.`,
           config: {
             tools: [{ googleSearch: {} }],
             responseMimeType: "application/json",
@@ -41,7 +47,7 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
                   pharmacy: { type: Type.STRING },
                   price: { type: Type.STRING },
                   link: { type: Type.STRING },
-                  thumbnail: { type: Type.STRING }
+                  logoUrl: { type: Type.STRING }
                 },
                 required: ["pharmacy", "price", "link"]
               }
@@ -71,11 +77,9 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
         {prices.map((p, i) => (
           <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors border border-slate-200 dark:border-[#1E293B]">
             <div className="flex items-center gap-3">
-              {p.thumbnail && (
-                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white p-1 shadow-sm border border-slate-100 dark:border-white/5">
-                  <img src={p.thumbnail} alt={p.pharmacy} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                </div>
-              )}
+              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white p-1 shadow-sm border border-slate-100 dark:border-white/5">
+                <PharmacyLogo url={p.logoUrl} name={p.pharmacy} />
+              </div>
               <span className="text-sm font-medium text-slate-900 dark:text-white">{p.pharmacy}</span>
             </div>
             <div className="flex items-center gap-3">
