@@ -63,7 +63,11 @@ export function Login() {
       navigate('/');
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Failed to sign in with Google');
+      if (err.code === 'auth/popup-blocked') {
+        setError('Popup blocked! Please allow popups for this site and try again.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google');
+      }
     } finally {
       setIsLoading(false);
     }

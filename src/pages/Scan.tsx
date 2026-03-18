@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image as ImageIcon, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Camera, Image as ImageIcon, Loader2, ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { analyzePrescription } from '../services/geminiService';
 
@@ -10,15 +10,18 @@ export function Scan() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(prescriptionImage);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setPreview(prescriptionImage);
     setShowOverlay(false);
+    setError(null);
   }, [prescriptionImage]);
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setError(null);
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
@@ -73,13 +76,15 @@ export function Scan() {
     if (!preview) return;
     
     setIsLoading(true);
+    setError(null);
     try {
       const analysisResults = await analyzePrescription(preview);
       setResults(analysisResults);
       saveToHistory(preview, analysisResults);
       setShowOverlay(true);
-    } catch (error) {
-      alert("Failed to analyze prescription. Please try again.");
+    } catch (err: any) {
+      console.error("Analysis failed:", err);
+      setError("Failed to analyze prescription. Please ensure the photo is clear and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -88,6 +93,13 @@ export function Scan() {
   return (
     <div className="px-4 space-y-6 flex flex-col items-center justify-center min-h-[70vh]">
       
+      {error && (
+        <div className="w-full p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+
       {!preview ? (
         <div className="w-full space-y-6">
           <div className="flex items-center gap-4 mb-2">

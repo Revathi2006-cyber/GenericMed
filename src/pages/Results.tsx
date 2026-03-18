@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, IndianRupee, MapPin, Share2, FileDown, ShoppingCart, ExternalLink, Loader2, AlertTriangle, Activity, Mail, MessageCircle, Twitter, Copy, X, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, IndianRupee, MapPin, Share2, FileDown, ShoppingCart, ExternalLink, Loader2, AlertTriangle, Activity, Mail, MessageCircle, Twitter, Copy, X, BarChart3, PieChart as PieChartIcon, Filter, SlidersHorizontal, ArrowLeftRight, Check } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import jsPDF from 'jspdf';
 import { 
@@ -69,13 +69,40 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
   );
 }
 
+function CopyGenericName({ name }: { name: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(name);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button 
+      onClick={handleCopy}
+      className={`p-2 rounded-lg transition-all ${
+        copied 
+          ? 'bg-emerald-500/10 text-emerald-500' 
+          : 'bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#2A374A] text-slate-500 dark:text-[#94A3B8]'
+      }`}
+      title="Copy generic name"
+    >
+      {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+    </button>
+  );
+}
+
 export function Results() {
   const navigate = useNavigate();
   const { results } = useAppStore();
   const [isLocating, setIsLocating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
-
+  const [selectedForComparison, setSelectedForComparison] = useState<number[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  
   if (!results || results.length === 0) {
     return (
       <div className="p-8 text-center space-y-4">
@@ -96,23 +123,32 @@ export function Results() {
 
   const handleFindStores = () => {
     setIsLocating(true);
+    
+    // Open a blank window immediately to preserve user gesture
+    const mapWindow = window.open('', '_blank');
+    if (!mapWindow) {
+      setIsLocating(false);
+      setError("Popup blocked! Please allow popups to find nearby stores.");
+      return;
+    }
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setIsLocating(false);
           const { latitude, longitude } = position.coords;
-          window.open(`https://www.google.com/maps/search/generic+pharmacy+near+me/@${latitude},${longitude},15z`, '_blank');
+          mapWindow.location.href = `https://www.google.com/maps/search/generic+pharmacy+near+me/@${latitude},${longitude},15z`;
         },
         (error) => {
           console.warn("Geolocation failed or denied, falling back to generic search.", error);
           setIsLocating(false);
-          window.open('https://www.google.com/maps/search/generic+pharmacy+near+me', '_blank');
+          mapWindow.location.href = 'https://www.google.com/maps/search/generic+pharmacy+near+me';
         },
         { timeout: 10000, enableHighAccuracy: true }
       );
     } else {
       setIsLocating(false);
-      window.open('https://www.google.com/maps/search/generic+pharmacy+near+me', '_blank');
+      mapWindow.location.href = 'https://www.google.com/maps/search/generic+pharmacy+near+me';
     }
   };
 
@@ -143,24 +179,68 @@ export function Results() {
       let currentY = yPos + 24;
       
       if (item.sideEffects && item.sideEffects.length > 0) {
-        doc.text(`Side Effects: ${item.sideEffects.join(', ')}`, 20, currentY, { maxWidth: 170 });
-        currentY += Math.ceil(item.sideEffects.join(', ').length / 100) * 5 + 2;
+        doc.setFont("helvetica", "bold");
+        doc.text("Side Effects:", 20, currentY);
+        doc.setFont("helvetica", "normal");
+        const effectsText = item.sideEffects.join(', ');
+        doc.text(effectsText, 45, currentY, { maxWidth: 145 });
+        currentY += Math.ceil(effectsText.length / 80) * 5 + 2;
       }
       
       if (item.interactions && item.interactions.length > 0) {
-        doc.text(`Interactions: ${item.interactions.join(', ')}`, 20, currentY, { maxWidth: 170 });
-        currentY += Math.ceil(item.interactions.join(', ').length / 100) * 5 + 2;
+        doc.setFont("helvetica", "bold");
+        doc.text("Interactions:", 20, currentY);
+        doc.setFont("helvetica", "normal");
+        const interactionsText = item.interactions.join(', ');
+        doc.text(interactionsText, 45, currentY, { maxWidth: 145 });
+        currentY += Math.ceil(interactionsText.length / 80) * 5 + 2;
+      }
+
+      if (item.usageInstructions) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Usage:", 20, currentY);
+        doc.setFont("helvetica", "normal");
+        doc.text(item.usageInstructions, 45, currentY, { maxWidth: 145 });
+        currentY += Math.ceil(item.usageInstructions.length / 80) * 5 + 2;
+      }
+
+      if (item.precautions && item.precautions.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Precautions:", 20, currentY);
+        doc.setFont("helvetica", "normal");
+        const precautionsText = item.precautions.join(', ');
+        doc.text(precautionsText, 45, currentY, { maxWidth: 145 });
+        currentY += Math.ceil(precautionsText.length / 80) * 5 + 2;
+      }
+
+      if (item.whenToConsultDoctor && item.whenToConsultDoctor.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(220, 38, 38); // Red color for warnings
+        doc.text("Consult Doctor If:", 20, currentY);
+        doc.setFont("helvetica", "normal");
+        const consultText = item.whenToConsultDoctor.join(', ');
+        doc.text(consultText, 55, currentY, { maxWidth: 135 });
+        doc.setTextColor(0, 0, 0); // Reset to black
+        currentY += Math.ceil(consultText.length / 70) * 5 + 2;
       }
       
       if (item.complementaryCare) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(5, 150, 105); // Emerald color
+        doc.text("Complementary Care:", 20, currentY);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
+        currentY += 5;
+
         if (item.complementaryCare.homeRemedies.length > 0) {
-          doc.text(`Home Remedies: ${item.complementaryCare.homeRemedies.join(', ')}`, 20, currentY, { maxWidth: 170 });
-          currentY += Math.ceil(item.complementaryCare.homeRemedies.join(', ').length / 100) * 5 + 2;
+          const remediesText = `Home Remedies: ${item.complementaryCare.homeRemedies.join(', ')}`;
+          doc.text(remediesText, 25, currentY, { maxWidth: 165 });
+          currentY += Math.ceil(remediesText.length / 90) * 5 + 2;
         }
         if (item.complementaryCare.ayurvedaSuggestions.length > 0) {
-          const ayurvedaText = item.complementaryCare.ayurvedaSuggestions.map(s => `${s.herb} (${s.benefit})`).join(', ');
-          doc.text(`Ayurveda: ${ayurvedaText}`, 20, currentY, { maxWidth: 170 });
-          currentY += Math.ceil(ayurvedaText.length / 100) * 5 + 2;
+          const ayurvedaText = `Ayurveda: ${item.complementaryCare.ayurvedaSuggestions.map(s => `${s.herb} (${s.benefit})`).join(', ')}`;
+          doc.text(ayurvedaText, 25, currentY, { maxWidth: 165 });
+          currentY += Math.ceil(ayurvedaText.length / 90) * 5 + 2;
         }
       }
       
@@ -177,6 +257,15 @@ export function Results() {
     }
     if (r.interactions && r.interactions.length > 0) {
       details += `\n  Interactions: ${r.interactions.join(', ')}`;
+    }
+    if (r.usageInstructions) {
+      details += `\n  Usage: ${r.usageInstructions}`;
+    }
+    if (r.precautions && r.precautions.length > 0) {
+      details += `\n  Precautions: ${r.precautions.join(', ')}`;
+    }
+    if (r.whenToConsultDoctor && r.whenToConsultDoctor.length > 0) {
+      details += `\n  Consult Doctor If: ${r.whenToConsultDoctor.join(', ')}`;
     }
     if (r.complementaryCare) {
       if (r.complementaryCare.homeRemedies.length > 0) {
@@ -209,14 +298,41 @@ export function Results() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const toggleComparison = (idx: number) => {
+    setSelectedForComparison(prev => 
+      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
+    );
+  };
+
+  const selectedItems = selectedForComparison.map(idx => results[idx]);
+
   return (
-    <div className="px-4 space-y-6">
+    <div className="px-4 pb-32 space-y-6">
       <div className="flex items-center gap-4 mb-6">
         <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-900 dark:text-white">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Your Results</h2>
       </div>
+
+      {/* Generic Medicine Safety Note */}
+      <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="w-5 h-5" />
+          <h4 className="font-bold">Generics are just as safe</h4>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+          Side effects and interactions are caused by the <strong>active ingredient (salt)</strong>, not the brand. 
+          Branded and generic medicines contain the <strong>exact same active ingredient</strong> and are required to meet the same safety standards.
+        </p>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <AlertTriangle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
 
       {/* Savings Summary Card */}
       <div className="p-6 rounded-2xl shadow-lg border-t-4 border-emerald-500 bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B]">
@@ -257,6 +373,10 @@ export function Results() {
 
       {/* Visual Comparison Charts */}
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Analysis</h3>
+        </div>
+
         <div className="p-6 rounded-2xl bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B] shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <BarChart3 className="w-5 h-5 text-[#00A3FF]" />
@@ -267,45 +387,59 @@ export function Results() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={results.map(r => ({
-                  name: r.brandedName.length > 10 ? r.brandedName.substring(0, 10) + '...' : r.brandedName,
+                  name: r.brandedName.length > 8 ? r.brandedName.substring(0, 8) + '...' : r.brandedName,
                   Branded: r.brandedPrice,
                   Generic: r.genericPrice,
+                  Savings: r.savings,
+                  savingsPercent: Math.round((r.savings / r.brandedPrice) * 100),
                   fullName: r.brandedName,
                   brandedName: r.brandedName,
                   genericName: r.genericName
                 }))}
-                margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+                margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.1} />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#94A3B8', fontSize: 12 }}
+                  tick={{ fill: '#94A3B8', fontSize: 10 }}
+                  interval={0}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#94A3B8', fontSize: 12 }}
+                  tick={{ fill: '#94A3B8', fontSize: 10 }}
                   tickFormatter={(value) => `₹${value}`}
                 />
                 <Tooltip 
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
+                      const data = payload[0].payload;
                       return (
-                        <div className="bg-[#111C33] border border-[#1E293B] p-4 rounded-xl shadow-2xl">
-                          <div className="space-y-2">
-                            {payload.map((entry: any, index: number) => (
-                              <div key={index} className="flex items-center justify-between gap-8">
+                        <div className="bg-[#111C33] border border-[#1E293B] p-4 rounded-xl shadow-2xl min-w-[200px]">
+                          <p className="text-xs font-bold text-[#94A3B8] mb-2 uppercase tracking-wider">Medicine Analysis</p>
+                          <div className="space-y-3">
+                            <div className="pb-2 border-b border-white/5">
+                              <p className="text-sm font-bold text-white leading-tight">{data.brandedName}</p>
+                              <p className="text-[10px] text-slate-500">Branded Price: ₹{data.Branded}</p>
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                                  <span className="text-sm font-medium text-white">
-                                    {entry.dataKey === 'Generic' ? entry.payload.genericName : entry.payload.brandedName}
-                                  </span>
+                                  <div className="w-2 h-2 rounded-full bg-[#10B981]"></div>
+                                  <span className="text-xs text-slate-300">Generic</span>
                                 </div>
-                                <span className="text-sm font-bold" style={{ color: entry.color }}>₹{entry.value}</span>
+                                <span className="text-xs font-bold text-[#10B981]">₹{data.Generic}</span>
                               </div>
-                            ))}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-[#F43F5E]"></div>
+                                  <span className="text-xs text-slate-300">Savings</span>
+                                </div>
+                                <span className="text-xs font-bold text-[#F43F5E]">₹{data.Savings} ({data.savingsPercent}%)</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -314,21 +448,26 @@ export function Results() {
                   }}
                   cursor={{ fill: '#1E293B', opacity: 0.4 }}
                 />
-                <Legend iconType="circle" />
-                <Bar dataKey="Generic" fill="#00A3FF" radius={[4, 4, 0, 0]} barSize={24} />
-                <Bar dataKey="Branded" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={24} />
+                <Legend 
+                  verticalAlign="top" 
+                  align="right" 
+                  iconType="circle"
+                  wrapperStyle={{ paddingBottom: '20px', fontSize: '12px' }}
+                />
+                <Bar dataKey="Generic" name="Generic Cost" fill="#10B981" radius={[4, 4, 0, 0]} barSize={20} />
+                <Bar dataKey="Savings" name="Amount Saved" fill="#F43F5E" radius={[4, 4, 0, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B] shadow-sm">
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B] shadow-sm relative overflow-hidden">
             <div className="flex items-center gap-2 mb-6">
               <PieChartIcon className="w-5 h-5 text-emerald-500" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Cost Distribution</h3>
             </div>
-            <div className="h-[200px] w-full">
+            <div className="h-[220px] w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -338,142 +477,247 @@ export function Results() {
                     ]}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={65}
+                    outerRadius={85}
+                    paddingAngle={8}
                     dataKey="value"
+                    stroke="none"
                   >
                     <Cell fill="#10B981" />
-                    <Cell fill="#00A3FF" />
+                    <Cell fill="#334155" />
                   </Pie>
                   <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#111C33', 
-                      border: '1px solid #1E293B', 
-                      borderRadius: '12px' 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-[#111C33] border border-[#1E293B] p-3 rounded-xl shadow-2xl">
+                            <p className="text-xs font-bold text-white mb-1">{payload[0].name}</p>
+                            <p className="text-sm font-black text-emerald-400">₹{payload[0].value}</p>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-6 mt-2">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#10B981]"></div>
-                <span className="text-xs text-slate-500 dark:text-[#94A3B8]">Savings</span>
+              {/* Center Label for Donut */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xs font-bold text-slate-500 dark:text-[#94A3B8] uppercase tracking-tighter">Total</span>
+                <span className="text-xl font-black text-slate-900 dark:text-white">₹{totalBranded}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-[#00A3FF]"></div>
-                <span className="text-xs text-slate-500 dark:text-[#94A3B8]">Generic Cost</span>
+            </div>
+            <div className="flex justify-center gap-8 mt-4">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Savings</span>
+                </div>
+                <span className="text-xs text-slate-500 dark:text-[#94A3B8]">₹{totalSavings}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#334155]"></div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Generic Cost</span>
+                </div>
+                <span className="text-xs text-slate-500 dark:text-[#94A3B8]">₹{totalGeneric}</span>
               </div>
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-center items-center text-center">
-            <span className="text-emerald-500 font-bold text-sm uppercase tracking-widest mb-2">Savings Rate</span>
-            <div className="text-5xl font-black text-emerald-500 mb-2">
-              {Math.round((totalSavings / totalBranded) * 100)}%
+          <div className="p-8 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 flex flex-col justify-between relative overflow-hidden group">
+            {/* Background Decorative Element */}
+            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+            
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-emerald-500 font-black text-xs uppercase tracking-[0.2em]">Savings Rate</span>
+                <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-500">
+                  <Activity className="w-4 h-4" />
+                </div>
+              </div>
+              
+              <div className="flex items-end gap-2 mb-4">
+                <div className="text-6xl font-black text-emerald-500 leading-none">
+                  {Math.round((totalSavings / totalBranded) * 100)}%
+                </div>
+                <span className="text-emerald-600/60 dark:text-emerald-400/60 font-bold mb-1">REDUCTION</span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="h-2 w-full bg-emerald-500/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                    style={{ width: `${(totalSavings / totalBranded) * 100}%` }}
+                  ></div>
+                </div>
+                <p className="text-emerald-700 dark:text-emerald-400/90 text-sm font-medium leading-relaxed">
+                  You are saving <span className="font-black">₹{totalSavings}</span> on every purchase. That's more than half of your medical expenses!
+                </p>
+              </div>
             </div>
-            <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium">
-              You are saving more than half of your medical expenses by switching to generics.
-            </p>
+
+            <div className="mt-6 pt-6 border-t border-emerald-500/10 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-emerald-600/50 dark:text-emerald-400/40">Monthly Savings*</span>
+                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">₹{totalSavings * 1}</span>
+              </div>
+              <div className="px-3 py-1 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider">
+                High Impact
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <h3 className="font-bold text-xl mt-8 mb-4 text-slate-900 dark:text-white">Medicine Details</h3>
+      <div className="flex items-center justify-between mt-8 mb-4">
+        <h3 className="font-bold text-xl text-slate-900 dark:text-white">Medicine Details</h3>
+      </div>
       
       <div className="space-y-4">
         {results.map((item, idx) => (
-          <div key={idx} className="p-5 rounded-2xl shadow-sm space-y-4 bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B]">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#94A3B8] mb-1 block">Prescribed (Branded)</span>
-                <h4 className="text-lg font-bold text-rose-500">{item.brandedName}</h4>
-                <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-1">₹{item.brandedPrice}</p>
+          <div key={idx} className={`p-5 rounded-2xl shadow-sm space-y-4 bg-white dark:bg-[#111C33] border transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 ${selectedForComparison.includes(idx) ? 'border-[#00A3FF] ring-2 ring-[#00A3FF]/20' : 'border-slate-200 dark:border-[#1E293B]'}`} style={{ animationDelay: `${idx * 50}ms` }}>
+              <div className="flex justify-between items-start">
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => toggleComparison(idx)}
+                    className={`mt-1 w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${selectedForComparison.includes(idx) ? 'bg-[#00A3FF] border-[#00A3FF] text-white' : 'border-slate-300 dark:border-slate-600'}`}
+                  >
+                    {selectedForComparison.includes(idx) && <Check className="w-4 h-4" />}
+                  </button>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#94A3B8] mb-1 block">Prescribed (Branded)</span>
+                    <h4 className="text-lg font-bold text-rose-500">{item.brandedName}</h4>
+                    <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-1">₹{item.brandedPrice}</p>
+                  </div>
+                </div>
+                <div className="bg-emerald-500 text-white px-3 py-1.5 rounded-full text-sm font-black flex items-center gap-1 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse">
+                  <IndianRupee className="w-3 h-3" /> Save ₹{item.savings}
+                </div>
               </div>
-              <div className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-                Save ₹{item.savings}
+
+              <div className="h-px bg-slate-100 dark:bg-[#1E293B] w-full"></div>
+
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-1 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Generic Alternative
+                  </span>
+                  <h4 className="text-xl font-bold text-[#00A3FF]">{item.genericName}</h4>
+                  <p className="text-lg font-semibold mt-1 text-slate-900 dark:text-white">₹{item.genericPrice}</p>
+                </div>
+                <CopyGenericName name={item.genericName} />
               </div>
-            </div>
 
-            <div className="h-px bg-slate-100 dark:bg-[#1E293B] w-full"></div>
-
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Generic Alternative
-              </span>
-              <h4 className="text-xl font-bold text-[#00A3FF]">{item.genericName}</h4>
-              <p className="text-lg font-semibold mt-1 text-slate-900 dark:text-white">₹{item.genericPrice}</p>
-            </div>
-
-            <div className="p-3 rounded-lg text-sm bg-slate-50 dark:bg-[#0B1120] text-slate-500 dark:text-[#94A3B8]">
-              <span className="font-semibold block mb-1 text-slate-900 dark:text-white">Salt Composition:</span>
-              {item.saltComposition}
-            </div>
-
-            {item.sideEffects && item.sideEffects.length > 0 && (
-              <div className="p-3 rounded-lg text-sm bg-amber-500/10 text-amber-200/80 border border-amber-500/20">
-                <span className="font-semibold flex items-center gap-1.5 mb-2 text-amber-500">
-                  <AlertTriangle className="w-4 h-4" /> Potential Side Effects
-                </span>
-                <ul className="list-disc pl-5 space-y-1">
-                  {item.sideEffects.map((effect, i) => (
-                    <li key={i}>{effect}</li>
-                  ))}
-                </ul>
+              <div className="p-3 rounded-lg text-sm bg-slate-50 dark:bg-[#0B1120] text-slate-500 dark:text-[#94A3B8]">
+                <span className="font-semibold block mb-1 text-slate-900 dark:text-white">Salt Composition:</span>
+                {item.saltComposition}
               </div>
-            )}
 
-            {item.interactions && item.interactions.length > 0 && (
-              <div className="p-3 rounded-lg text-sm bg-rose-500/10 text-rose-200/80 border border-rose-500/20">
-                <span className="font-semibold flex items-center gap-1.5 mb-2 text-rose-500">
-                  <Activity className="w-4 h-4" /> Known Interactions
-                </span>
-                <ul className="list-disc pl-5 space-y-1">
-                  {item.interactions.map((interaction, i) => (
-                    <li key={i}>{interaction}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              {item.usageInstructions && (
+                <div className="p-3 rounded-lg text-sm bg-blue-500/10 text-blue-200/80 border border-blue-500/20">
+                  <span className="font-semibold flex items-center gap-1.5 mb-2 text-blue-500">
+                    <CheckCircle2 className="w-4 h-4" /> Usage Instructions
+                  </span>
+                  <p className="leading-relaxed">{item.usageInstructions}</p>
+                </div>
+              )}
 
-            {item.complementaryCare && (item.complementaryCare.homeRemedies.length > 0 || item.complementaryCare.ayurvedaSuggestions.length > 0) && (
-              <div className="p-4 rounded-xl text-sm bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/30">
-                <span className="font-bold flex items-center gap-1.5 mb-3 text-emerald-700 dark:text-emerald-400 text-base">
-                  💚 Complementary Care <span className="text-xs font-normal opacity-75">(Optional)</span>
-                </span>
-                
-                <div className="space-y-3 text-emerald-900 dark:text-emerald-100/90">
-                  {item.complementaryCare.homeRemedies.length > 0 && (
-                    <ul className="list-disc pl-5 space-y-1.5">
-                      {item.complementaryCare.homeRemedies.map((remedy, i) => (
-                        <li key={i}>{remedy}</li>
-                      ))}
-                    </ul>
-                  )}
+              {item.precautions && item.precautions.length > 0 && (
+                <div className="p-3 rounded-lg text-sm bg-slate-500/10 text-slate-200/80 border border-slate-500/20">
+                  <span className="font-semibold flex items-center gap-1.5 mb-2 text-slate-400">
+                    <SlidersHorizontal className="w-4 h-4" /> Key Precautions
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {item.precautions.map((precaution, i) => (
+                      <li key={i}>{precaution}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {item.whenToConsultDoctor && item.whenToConsultDoctor.length > 0 && (
+                <div className="p-3 rounded-lg text-sm bg-rose-500/10 text-rose-200/80 border border-rose-500/20">
+                  <span className="font-semibold flex items-center gap-1.5 mb-2 text-rose-500">
+                    <AlertTriangle className="w-4 h-4" /> When to Consult a Doctor
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {item.whenToConsultDoctor.map((flag, i) => (
+                      <li key={i} className="text-rose-300/90 font-medium">{flag}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {item.sideEffects && item.sideEffects.length > 0 && (
+                <div className="p-3 rounded-lg text-sm bg-amber-500/10 text-amber-200/80 border border-amber-500/20">
+                  <span className="font-semibold flex items-center justify-between mb-2 text-amber-500">
+                    <span className="flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" /> Potential Side Effects
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider opacity-70">Common to both Branded & Generic</span>
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {item.sideEffects.map((effect, i) => (
+                      <li key={i}>{effect}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {item.interactions && item.interactions.length > 0 && (
+                <div className="p-3 rounded-lg text-sm bg-rose-500/10 text-rose-200/80 border border-rose-500/20">
+                  <span className="font-semibold flex items-center justify-between mb-2 text-rose-500">
+                    <span className="flex items-center gap-1.5">
+                      <Activity className="w-4 h-4" /> Known Interactions
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider opacity-70">Applies to active salt</span>
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {item.interactions.map((interaction, i) => (
+                      <li key={i}>{interaction}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {item.complementaryCare && (item.complementaryCare.homeRemedies.length > 0 || item.complementaryCare.ayurvedaSuggestions.length > 0) && (
+                <div className="p-4 rounded-xl text-sm bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/30">
+                  <span className="font-bold flex items-center gap-1.5 mb-3 text-emerald-700 dark:text-emerald-400 text-base">
+                    💚 Complementary Care <span className="text-xs font-normal opacity-75">(Optional)</span>
+                  </span>
                   
-                  {item.complementaryCare.ayurvedaSuggestions.length > 0 && (
-                    <ul className="list-disc pl-5 space-y-1.5">
-                      {item.complementaryCare.ayurvedaSuggestions.map((suggestion, i) => (
-                        <li key={i}>
-                          Light Ayurvedic suggestion: <span className="font-semibold">{suggestion.herb}</span> ({suggestion.benefit}) - consult doctor
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                  <div className="space-y-3 text-emerald-900 dark:text-emerald-100/90">
+                    {item.complementaryCare.homeRemedies.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-1.5">
+                        {item.complementaryCare.homeRemedies.map((remedy, i) => (
+                          <li key={i}>{remedy}</li>
+                        ))}
+                      </ul>
+                    )}
+                    
+                    {item.complementaryCare.ayurvedaSuggestions.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-1.5">
+                        {item.complementaryCare.ayurvedaSuggestions.map((suggestion, i) => (
+                          <li key={i}>
+                            Light Ayurvedic suggestion: <span className="font-semibold">{suggestion.herb}</span> ({suggestion.benefit}) - consult doctor
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
-                <div className="mt-4 pt-3 border-t border-emerald-200/50 dark:border-emerald-800/50 text-xs text-emerald-800/80 dark:text-emerald-200/70 flex items-start gap-1.5">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p>
-                    <strong>Note:</strong> These are supportive tips and not medical advice. Please consult a doctor before trying new remedies. Do not stop prescribed medicines.
-                  </p>
+                  <div className="mt-4 pt-3 border-t border-emerald-200/50 dark:border-emerald-800/50 text-xs text-emerald-800/80 dark:text-emerald-200/70 flex items-start gap-1.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p>
+                      <strong>Note:</strong> These are supportive tips and not medical advice. Please consult a doctor before trying new remedies. Do not stop prescribed medicines.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <RealTimePrices medicineName={item.genericName} />
-          </div>
+              <RealTimePrices medicineName={item.genericName} />
+            </div>
         ))}
       </div>
 
@@ -494,6 +738,157 @@ export function Results() {
           Opens Google Maps to find generic pharmacies near you.
         </p>
       </div>
+
+      {/* Comparison Bar */}
+      {selectedForComparison.length > 0 && (
+        <div className="fixed bottom-6 left-4 right-4 z-40 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="bg-[#111C33] border border-[#1E293B] rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#00A3FF]/20 flex items-center justify-center text-[#00A3FF]">
+                <ArrowLeftRight className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">{selectedForComparison.length} Medicines Selected</p>
+                <p className="text-xs text-[#94A3B8]">Compare side-by-side</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setSelectedForComparison([])}
+                className="px-4 py-2 text-sm font-medium text-[#94A3B8] hover:text-white transition-colors"
+              >
+                Clear
+              </button>
+              <button 
+                disabled={selectedForComparison.length < 2}
+                onClick={() => setShowCompareModal(true)}
+                className="px-6 py-2 bg-[#00A3FF] hover:bg-[#008BDB] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold transition-all shadow-[0_0_20px_rgba(0,163,255,0.25)]"
+              >
+                Compare Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comparison Modal */}
+      {showCompareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md">
+          <div className="bg-white dark:bg-[#0B1120] border border-slate-200 dark:border-[#1E293B] rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in duration-300">
+            <div className="p-6 border-b border-slate-200 dark:border-[#1E293B] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-[#00A3FF]/10 text-[#00A3FF]">
+                  <ArrowLeftRight className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Medicine Comparison</h3>
+              </div>
+              <button 
+                onClick={() => setShowCompareModal(false)}
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#94A3B8] transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              <div className="min-w-[600px]">
+                <table className="w-full border-separate border-spacing-0">
+                  <thead>
+                    <tr>
+                      <th className="sticky top-0 left-0 z-30 p-4 text-left text-sm font-bold text-slate-500 dark:text-[#94A3B8] border-b border-r border-slate-200 dark:border-[#1E293B] bg-white dark:bg-[#0B1120] w-1/4">
+                        Feature
+                      </th>
+                      {selectedItems.map((item, i) => (
+                        <th key={i} className="sticky top-0 z-20 p-4 text-left border-b border-slate-200 dark:border-[#1E293B] bg-white dark:bg-[#0B1120]">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#00A3FF]">Medicine {i + 1}</span>
+                            <h4 className="font-bold text-slate-900 dark:text-white leading-tight">{item.genericName}</h4>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-[#1E293B]">
+                    <tr className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                      <td className="sticky left-0 z-10 p-4 text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#111C33] border-r border-slate-200 dark:border-[#1E293B]">Generic Price</td>
+                      {selectedItems.map((item, i) => (
+                        <td key={i} className="p-4">
+                          <span className="text-lg font-black text-emerald-500">₹{item.genericPrice}</span>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="group bg-slate-50/30 dark:bg-white/5 hover:bg-slate-50/50 dark:hover:bg-white/10 transition-colors">
+                      <td className="sticky left-0 z-10 p-4 text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1E293B] border-r border-slate-200 dark:border-[#1E293B]">Savings</td>
+                      {selectedItems.map((item, i) => (
+                        <td key={i} className="p-4">
+                          <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-500 text-white text-xs font-black shadow-lg">
+                            <IndianRupee className="w-3 h-3" /> Save ₹{item.savings}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                      <td className="sticky left-0 z-10 p-4 text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#111C33] border-r border-slate-200 dark:border-[#1E293B]">Branded Version</td>
+                      {selectedItems.map((item, i) => (
+                        <td key={i} className="p-4">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold text-rose-500">{item.brandedName}</p>
+                            <p className="text-xs text-slate-500">₹{item.brandedPrice}</p>
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="group bg-slate-50/30 dark:bg-white/5 hover:bg-slate-50/50 dark:hover:bg-white/10 transition-colors">
+                      <td className="sticky left-0 z-10 p-4 text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1E293B] border-r border-slate-200 dark:border-[#1E293B]">Salt Composition</td>
+                      {selectedItems.map((item, i) => (
+                        <td key={i} className="p-4 text-sm text-slate-600 dark:text-[#94A3B8]">
+                          {item.saltComposition}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                      <td className="sticky left-0 z-10 p-4 text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#111C33] border-r border-slate-200 dark:border-[#1E293B]">Side Effects</td>
+                      {selectedItems.map((item, i) => (
+                        <td key={i} className="p-4">
+                          <ul className="space-y-1">
+                            {item.sideEffects.slice(0, 3).map((effect, j) => (
+                              <li key={j} className="text-xs flex items-center gap-1.5 text-slate-500 dark:text-[#94A3B8]">
+                                <div className="w-1 h-1 rounded-full bg-amber-500" />
+                                {effect}
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="group bg-slate-50/30 dark:bg-white/5 hover:bg-slate-50/50 dark:hover:bg-white/10 transition-colors">
+                      <td className="sticky left-0 z-10 p-4 text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1E293B] border-r border-slate-200 dark:border-[#1E293B]">Interactions</td>
+                      {selectedItems.map((item, i) => (
+                        <td key={i} className="p-4">
+                          <ul className="space-y-1">
+                            {item.interactions.slice(0, 3).map((interaction, j) => (
+                              <li key={j} className="text-xs flex items-center gap-1.5 text-slate-500 dark:text-[#94A3B8]">
+                                <div className="w-1 h-1 rounded-full bg-rose-500" />
+                                {interaction}
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200 dark:border-[#1E293B]">
+              <p className="text-xs text-slate-500 dark:text-[#94A3B8] text-center italic">
+                * Comparison is based on active ingredients and estimated market prices. Always consult your doctor before switching medications.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share Modal */}
       {showShareModal && (
