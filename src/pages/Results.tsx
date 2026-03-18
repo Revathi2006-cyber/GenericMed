@@ -84,12 +84,30 @@ If you cannot find a direct logo URL, you MUST provide the official website doma
         setPrices(data);
         setLoading(false);
       } catch (err: any) {
-        if (err.message.includes('429') && retries > 0) {
+        console.error("Error fetching prices:", err);
+        
+        // Try to extract message from the error object
+        let errorMessage = err.message || String(err);
+        
+        // If it's a JSON string, try to parse it
+        if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
+          try {
+            const parsedError = JSON.parse(errorMessage);
+            if (parsedError.error && parsedError.error.message) {
+              errorMessage = parsedError.error.message;
+            }
+          } catch (e) {
+            console.error("Failed to parse error JSON:", e);
+          }
+        }
+
+        if (errorMessage.includes('429') || (err.status === 429) && retries > 0) {
           console.warn(`Rate limit hit, retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return fetchPrices(retries - 1, delay * 2);
         }
-        setError(err.message);
+        
+        setError(errorMessage);
         setLoading(false);
       }
     }
