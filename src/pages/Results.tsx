@@ -101,10 +101,17 @@ If you cannot find a direct logo URL, you MUST provide the official website doma
           }
         }
 
-        if (errorMessage.includes('429') || (err.status === 429) && retries > 0) {
+        const isQuotaExceeded = errorMessage.includes('exceeded your current quota');
+        const isRateLimit = errorMessage.includes('429') || err.status === 429;
+
+        if (isRateLimit && !isQuotaExceeded && retries > 0) {
           console.warn(`Rate limit hit, retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return fetchPrices(retries - 1, delay * 2);
+        }
+        
+        if (isQuotaExceeded) {
+          errorMessage = "You have exceeded your Gemini API quota. Please check your billing details or use a project with higher quota.";
         }
         
         setError(errorMessage);
