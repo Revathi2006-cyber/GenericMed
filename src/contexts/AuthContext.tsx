@@ -13,6 +13,9 @@ interface UserProfile {
   hasCompletedOnboarding?: boolean;
   theme?: 'light' | 'dark';
   fontSize?: 'normal' | 'large' | 'extra-large';
+  notificationSound?: string;
+  reminderTiming?: number;
+  reminderRepeat?: number;
 }
 
 interface AuthContextType {

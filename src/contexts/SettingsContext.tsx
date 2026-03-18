@@ -3,9 +3,9 @@ import { useAuth } from './AuthContext';
 
 type Theme = 'dark' | 'light';
 type FontSize = 'normal' | 'large' | 'extra-large';
-export type NotificationSound = 'default' | 'chime' | 'bell' | 'digital';
+export type NotificationSound = 'default' | 'chime' | 'bell' | 'digital' | 'zen' | 'alert';
 
-export const SOUND_OPTIONS: NotificationSound[] = ['default', 'chime', 'bell', 'digital'];
+export const SOUND_OPTIONS: NotificationSound[] = ['default', 'chime', 'bell', 'digital', 'zen', 'alert'];
 
 export function playNotificationSound(type: NotificationSound) {
   try {
@@ -55,6 +55,18 @@ export function playNotificationSound(type: NotificationSound) {
         playTone(1000, 'square', now + 0.3, 0.1, 0.05);
         playTone(1000, 'square', now + 0.45, 0.1, 0.05);
         break;
+      case 'zen':
+        // Soft low hum
+        playTone(220, 'sine', now, 1.2, 0.2);
+        playTone(440, 'sine', now + 0.2, 1.0, 0.1);
+        break;
+      case 'alert':
+        // Urgent siren-like
+        playTone(880, 'sawtooth', now, 0.2, 0.05);
+        playTone(440, 'sawtooth', now + 0.2, 0.2, 0.05);
+        playTone(880, 'sawtooth', now + 0.4, 0.2, 0.05);
+        playTone(440, 'sawtooth', now + 0.6, 0.2, 0.05);
+        break;
     }
   } catch (e) {
     console.error("Audio play failed:", e);
@@ -68,6 +80,10 @@ interface SettingsContextType {
   setFontSize: (size: FontSize) => void;
   notificationSound: NotificationSound;
   setNotificationSound: (sound: NotificationSound) => void;
+  reminderTiming: number; // minutes before
+  setReminderTiming: (minutes: number) => void;
+  reminderRepeat: number; // times to repeat
+  setReminderRepeat: (times: number) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -86,12 +102,23 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem('notificationSound');
     return (saved as NotificationSound) || 'default';
   });
+  const [reminderTiming, setReminderTiming] = useState<number>(() => {
+    const saved = localStorage.getItem('reminderTiming');
+    return saved ? parseInt(saved) : 0;
+  });
+  const [reminderRepeat, setReminderRepeat] = useState<number>(() => {
+    const saved = localStorage.getItem('reminderRepeat');
+    return saved ? parseInt(saved) : 1;
+  });
 
   // Sync with profile if it exists
   useEffect(() => {
     if (profile) {
       if (profile.theme) setTheme(profile.theme);
       if (profile.fontSize) setFontSize(profile.fontSize);
+      if (profile.notificationSound) setNotificationSound(profile.notificationSound);
+      if (profile.reminderTiming !== undefined) setReminderTiming(profile.reminderTiming);
+      if (profile.reminderRepeat !== undefined) setReminderRepeat(profile.reminderRepeat);
     }
   }, [profile]);
 
@@ -115,8 +142,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('notificationSound', notificationSound);
   }, [notificationSound]);
 
+  useEffect(() => {
+    localStorage.setItem('reminderTiming', reminderTiming.toString());
+  }, [reminderTiming]);
+
+  useEffect(() => {
+    localStorage.setItem('reminderRepeat', reminderRepeat.toString());
+  }, [reminderRepeat]);
+
   return (
-    <SettingsContext.Provider value={{ theme, setTheme, fontSize, setFontSize, notificationSound, setNotificationSound }}>
+    <SettingsContext.Provider value={{ 
+      theme, setTheme, 
+      fontSize, setFontSize, 
+      notificationSound, setNotificationSound,
+      reminderTiming, setReminderTiming,
+      reminderRepeat, setReminderRepeat
+    }}>
       {children}
     </SettingsContext.Provider>
   );

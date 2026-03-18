@@ -1,0 +1,46 @@
+# Project Requirements
+
+## Runtime Environment
+- Node.js >= 18.x
+- npm >= 9.x
+
+## Core Dependencies
+- React 19
+- Vite 6
+- Express 4
+- Tailwind CSS 4
+- Firebase 12
+- Google Gemini AI (@google/genai)
+- jsPDF (for report generation)
+- Recharts (for data visualization)
+- Lucide React (for icons)
+- Zustand (for state management)
+- React Router (for navigation)
+- Motion (for animations)
+
+## API Keys Required
+- GEMINI_API_KEY (Google AI Studio)
+- Firebase Configuration (via firebase-applet-config.json)
+
+## How to Run
+
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Run in Development Mode
+```bash
+npm run dev
+```
+The app will be available at `http://localhost:3000`.
+
+### 3. Build for Production
+```bash
+npm run build
+```
+
+### 4. Run Production Build
+```bash
+npm start
+```

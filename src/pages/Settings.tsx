@@ -1,12 +1,32 @@
-import { Moon, Sun, Type, HelpCircle, Bell, Volume2 } from 'lucide-react';
-import { useSettings, SOUND_OPTIONS, NotificationSound, playNotificationSound } from '../contexts/SettingsContext';
+import { Moon, Sun, Type, HelpCircle, Bell, Volume2, Clock, Repeat } from 'lucide-react';
+import { useSettings, SOUND_OPTIONS, playNotificationSound } from '../contexts/SettingsContext';
 import { cn } from '../lib/utils';
 
 export function Settings() {
-  const { theme, setTheme, fontSize, setFontSize, notificationSound, setNotificationSound } = useSettings();
+  const { 
+    theme, setTheme, 
+    fontSize, setFontSize, 
+    notificationSound, setNotificationSound,
+    reminderTiming, setReminderTiming,
+    reminderRepeat, setReminderRepeat
+  } = useSettings();
+
+  const TIMING_OPTIONS = [
+    { label: 'At time of medication', value: 0 },
+    { label: '5 minutes before', value: 5 },
+    { label: '10 minutes before', value: 10 },
+    { label: '15 minutes before', value: 15 },
+    { label: '30 minutes before', value: 30 },
+  ];
+
+  const REPEAT_OPTIONS = [
+    { label: 'Once', value: 1 },
+    { label: 'Twice (5m apart)', value: 2 },
+    { label: 'Three times (5m apart)', value: 3 },
+  ];
 
   return (
-    <div className="p-4 max-w-md mx-auto space-y-6">
+    <div className="p-4 max-w-md mx-auto pb-24 space-y-6">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
 
       <div className="space-y-6">
@@ -94,7 +114,7 @@ export function Settings() {
             <h3 className="text-xl font-semibold">Reminder Sound</h3>
           </div>
           
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {SOUND_OPTIONS.map((sound) => (
               <button
                 key={sound}
@@ -103,22 +123,87 @@ export function Settings() {
                   playNotificationSound(sound);
                 }}
                 className={cn(
-                  "w-full py-4 px-4 rounded-xl font-medium transition-colors border-2 flex justify-between items-center",
+                  "py-3 px-4 rounded-xl font-medium transition-colors border-2 flex flex-col items-center gap-2",
                   notificationSound === sound 
                     ? (theme === 'dark' ? "border-blue-500 bg-slate-700 text-blue-400" : "border-blue-500 bg-blue-50 text-blue-700")
                     : (theme === 'dark' ? "border-slate-700 hover:border-slate-600 text-slate-400" : "border-slate-200 hover:border-slate-300 text-slate-600")
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <Volume2 className="w-5 h-5" />
-                  <span className="capitalize">{sound}</span>
-                </div>
-                {notificationSound === sound && <div className="w-3 h-3 rounded-full bg-blue-500" />}
+                <Volume2 className="w-5 h-5" />
+                <span className="capitalize text-sm">{sound}</span>
               </button>
             ))}
           </div>
           <p className="text-sm text-slate-500 mt-2">
             Select the sound you want to hear for your medicine reminders.
+          </p>
+        </section>
+
+        {/* Reminder Timing Settings */}
+        <section className={cn(
+          "p-6 rounded-2xl shadow-sm space-y-4",
+          theme === 'dark' ? "bg-slate-800" : "bg-white border border-slate-200"
+        )}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-rose-500/10 p-2 rounded-lg">
+              <Clock className="w-6 h-6 text-rose-500" />
+            </div>
+            <h3 className="text-xl font-semibold">Reminder Timing</h3>
+          </div>
+          
+          <div className="flex flex-col gap-3">
+            {TIMING_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setReminderTiming(option.value)}
+                className={cn(
+                  "w-full py-4 px-4 rounded-xl font-medium transition-colors border-2 flex justify-between items-center",
+                  reminderTiming === option.value 
+                    ? (theme === 'dark' ? "border-rose-500 bg-slate-700 text-rose-400" : "border-rose-500 bg-rose-50 text-rose-700")
+                    : (theme === 'dark' ? "border-slate-700 hover:border-slate-600 text-slate-400" : "border-slate-200 hover:border-slate-300 text-slate-600")
+                )}
+              >
+                <span>{option.label}</span>
+                {reminderTiming === option.value && <div className="w-3 h-3 rounded-full bg-rose-500" />}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-slate-500 mt-2">
+            Choose how early you want to be notified before your medication time.
+          </p>
+        </section>
+
+        {/* Reminder Frequency Settings */}
+        <section className={cn(
+          "p-6 rounded-2xl shadow-sm space-y-4",
+          theme === 'dark' ? "bg-slate-800" : "bg-white border border-slate-200"
+        )}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-cyan-500/10 p-2 rounded-lg">
+              <Repeat className="w-6 h-6 text-cyan-500" />
+            </div>
+            <h3 className="text-xl font-semibold">Alert Frequency</h3>
+          </div>
+          
+          <div className="flex flex-col gap-3">
+            {REPEAT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setReminderRepeat(option.value)}
+                className={cn(
+                  "w-full py-4 px-4 rounded-xl font-medium transition-colors border-2 flex justify-between items-center",
+                  reminderRepeat === option.value 
+                    ? (theme === 'dark' ? "border-cyan-500 bg-slate-700 text-cyan-400" : "border-cyan-500 bg-cyan-50 text-cyan-700")
+                    : (theme === 'dark' ? "border-slate-700 hover:border-slate-600 text-slate-400" : "border-slate-200 hover:border-slate-300 text-slate-600")
+                )}
+              >
+                <span>{option.label}</span>
+                {reminderRepeat === option.value && <div className="w-3 h-3 rounded-full bg-cyan-500" />}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-slate-500 mt-2">
+            How many times should the alert repeat if not dismissed?
           </p>
         </section>
 
@@ -150,3 +235,4 @@ export function Settings() {
     </div>
   );
 }
+

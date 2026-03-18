@@ -421,23 +421,19 @@ export function Results() {
                           <p className="text-xs font-bold text-[#94A3B8] mb-2 uppercase tracking-wider">Medicine Analysis</p>
                           <div className="space-y-3">
                             <div className="pb-2 border-b border-white/5">
+                              <p className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter mb-1">Branded Medicine</p>
                               <p className="text-sm font-bold text-white leading-tight">{data.brandedName}</p>
-                              <p className="text-[10px] text-slate-500">Branded Price: ₹{data.Branded}</p>
+                              <p className="text-xs text-slate-400 mt-1">Price: ₹{data.Branded}</p>
                             </div>
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-[#10B981]"></div>
-                                  <span className="text-xs text-slate-300">Generic</span>
-                                </div>
-                                <span className="text-xs font-bold text-[#10B981]">₹{data.Generic}</span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-[#F43F5E]"></div>
-                                  <span className="text-xs text-slate-300">Savings</span>
-                                </div>
-                                <span className="text-xs font-bold text-[#F43F5E]">₹{data.Savings} ({data.savingsPercent}%)</span>
+                            <div className="pb-2 border-b border-white/5">
+                              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter mb-1">Generic Alternative</p>
+                              <p className="text-sm font-bold text-[#00A3FF] leading-tight">{data.genericName}</p>
+                              <p className="text-xs text-slate-400 mt-1">Price: ₹{data.Generic}</p>
+                            </div>
+                            <div className="pt-1">
+                              <div className="flex items-center justify-between bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                                <span className="text-xs font-bold text-emerald-400">Total Savings</span>
+                                <span className="text-sm font-black text-emerald-400">₹{data.Savings} ({data.savingsPercent}%)</span>
                               </div>
                             </div>
                           </div>
