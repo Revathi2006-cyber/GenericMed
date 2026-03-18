@@ -10,11 +10,15 @@ service cloud.firestore {
     // Fields:
     //   - uid: string (required, immutable) - User ID
     //   - email: string (required) - User email address
+    //   - displayName: string (optional) - User display name
+    //   - photoURL: string (optional) - User profile picture URL
     //   - createdAt: string (required, immutable) - Creation timestamp
+    //   - lastLoginAt: string (optional) - Last login timestamp
     //
     // Collection: history
     // Document ID: {historyId}
     // Fields:
+    //   - id: string (required, immutable) - Unique ID
     //   - uid: string (required, immutable) - Owner User ID
     //   - date: string (required) - Date of scan/search
     //   - image: string (required) - Base64 image or empty string
@@ -56,14 +60,21 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'lastLoginAt', 'hasCompletedOnboarding', 'theme', 'fontSize']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
-             data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() < 50;
+             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() < 1000)) &&
+             data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() < 50 &&
+             (!('lastLoginAt' in data) || data.lastLoginAt == null || (data.lastLoginAt is string && data.lastLoginAt.size() < 50)) &&
+             (!('hasCompletedOnboarding' in data) || data.hasCompletedOnboarding is bool) &&
+             (!('theme' in data) || data.theme in ['light', 'dark']) &&
+             (!('fontSize' in data) || data.fontSize in ['normal', 'large', 'extra-large']);
     }
 
     function isValidHistoryItem(data) {
-      return hasOnlyAllowedFields(['uid', 'date', 'image', 'results']) &&
+      return hasOnlyAllowedFields(['id', 'uid', 'date', 'image', 'results']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.date is string && data.date.size() > 0 && data.date.size() < 50 &&
              data.image is string &&
@@ -73,14 +84,14 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && hasRequiredFields(['uid', 'email', 'createdAt']) && isValidUser(request.resource.data) && uidUnchanged();
-      allow update: if isOwner(userId) && hasRequiredFields(['uid', 'email', 'createdAt']) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if isOwner(userId);
     }
 
     match /history/{historyId} {
       allow read: if isDocOwner();
-      allow create: if isAuthenticated() && hasRequiredFields(['uid', 'date', 'image', 'results']) && isValidHistoryItem(request.resource.data) && request.resource.data.uid == request.auth.uid;
-      allow update: if isDocOwner() && hasRequiredFields(['uid', 'date', 'image', 'results']) && isValidHistoryItem(request.resource.data) && uidNotModified();
+      allow create: if isAuthenticated() && hasRequiredFields(['id', 'uid', 'date', 'image', 'results']) && isValidHistoryItem(request.resource.data) && request.resource.data.uid == request.auth.uid;
+      allow update: if isDocOwner() && hasRequiredFields(['id', 'uid', 'date', 'image', 'results']) && isValidHistoryItem(request.resource.data) && uidNotModified() && request.resource.data.id == resource.data.id;
       allow delete: if isDocOwner();
     }
   }

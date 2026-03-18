@@ -22,9 +22,12 @@ export const useReminderStore = create<ReminderState>()(
   persist(
     (set) => ({
       reminders: [],
-      addReminder: (reminder) => set((state) => ({
-        reminders: [...state.reminders, { ...reminder, id: crypto.randomUUID() }]
-      })),
+      addReminder: (reminder) => set((state) => {
+        const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        return {
+          reminders: [...state.reminders, { ...reminder, id }]
+        };
+      }),
       updateReminder: (id, updatedReminder) => set((state) => ({
         reminders: state.reminders.map((r) => r.id === id ? { ...r, ...updatedReminder } : r)
       })),

@@ -64,32 +64,32 @@ export function ReminderSystem() {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-sm space-y-4">
         {activeReminders.map(reminder => (
-          <div key={reminder.id} className="bg-[#111C33] border border-[#00A3FF] rounded-2xl p-6 shadow-[0_0_30px_rgba(0,163,255,0.3)] animate-in fade-in zoom-in duration-300">
+          <div key={reminder.id} className="bg-white dark:bg-[#111C33] border border-[#00A3FF] rounded-2xl p-6 shadow-[0_0_30px_rgba(0,163,255,0.3)] animate-in fade-in zoom-in duration-300">
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-[#00A3FF]/20 flex items-center justify-center text-[#00A3FF]">
                   <Bell className="w-6 h-6 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">Time for Medicine</h3>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Time for Medicine</h3>
                   <p className="text-[#00A3FF] font-medium">{reminder.time}</p>
                 </div>
               </div>
               <button 
                 onClick={() => dismissReminder(reminder.id)}
-                className="p-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] rounded-full transition-colors"
+                className="p-2 text-slate-500 dark:text-[#94A3B8] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1E293B] rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="bg-[#0B1120] rounded-xl p-4 flex items-center gap-4 mb-6">
-              <div className="w-10 h-10 rounded-full bg-[#1E293B] flex items-center justify-center text-white">
+            <div className="bg-slate-50 dark:bg-[#0B1120] rounded-xl p-4 flex items-center gap-4 mb-6">
+              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-[#1E293B] flex items-center justify-center text-slate-900 dark:text-white">
                 <Pill className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-white text-lg">{reminder.medicineName}</h4>
-                <p className="text-[#94A3B8]">{reminder.dosage}</p>
+                <h4 className="font-bold text-slate-900 dark:text-white text-lg">{reminder.medicineName}</h4>
+                <p className="text-slate-500 dark:text-[#94A3B8]">{reminder.dosage}</p>
               </div>
             </div>
             

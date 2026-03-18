@@ -32,21 +32,21 @@ async function startServer() {
           price: `₹${basePrice + 5}.00`,
           extracted_price: basePrice + 5,
           link: "https://www.apollopharmacy.in",
-          thumbnail: "https://ui-avatars.com/api/?name=Apollo+Pharmacy&background=0284c7&color=fff&rounded=true&bold=true"
+          thumbnail: "https://www.apollopharmacy.in/favicon.ico"
         },
         {
           pharmacy: "Netmeds",
           price: `₹${basePrice}.00`,
           extracted_price: basePrice,
           link: "https://www.netmeds.com",
-          thumbnail: "https://ui-avatars.com/api/?name=Netmeds&background=059669&color=fff&rounded=true&bold=true"
+          thumbnail: "https://www.netmeds.com/favicon.ico"
         },
         {
           pharmacy: "1mg",
           price: `₹${basePrice + 2}.00`,
           extracted_price: basePrice + 2,
           link: "https://www.1mg.com",
-          thumbnail: "https://ui-avatars.com/api/?name=1mg&background=ea580c&color=fff&rounded=true&bold=true"
+          thumbnail: "https://www.1mg.com/favicon.ico"
         }
       ];
 

@@ -4,6 +4,57 @@ import { MedicineResult } from '../services/geminiService';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 export interface HistoryItem {
   id: string;
   date: string;
@@ -37,8 +88,9 @@ export const useAppStore = create<AppState>()(
       history: [],
       setHistory: (history) => set({ history }),
       saveToHistory: async (image, results) => {
+        const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         const newItem: HistoryItem = {
-          id: crypto.randomUUID(),
+          id,
           date: new Date().toISOString(),
           image,
           results,
@@ -50,13 +102,14 @@ export const useAppStore = create<AppState>()(
 
         const user = auth.currentUser;
         if (user) {
+          const path = `history/${newItem.id}`;
           try {
             await setDoc(doc(db, 'history', newItem.id), {
               ...newItem,
               uid: user.uid
             });
           } catch (error) {
-            console.error("Error saving history to Firestore", error);
+            handleFirestoreError(error, OperationType.WRITE, path);
           }
         }
       },
@@ -68,7 +121,12 @@ export const useAppStore = create<AppState>()(
         if (user) {
           try {
             for (const item of currentHistory) {
-              await deleteDoc(doc(db, 'history', item.id));
+              const path = `history/${item.id}`;
+              try {
+                await deleteDoc(doc(db, 'history', item.id));
+              } catch (error) {
+                handleFirestoreError(error, OperationType.DELETE, path);
+              }
             }
           } catch (error) {
             console.error("Error clearing history from Firestore", error);
@@ -78,6 +136,7 @@ export const useAppStore = create<AppState>()(
       fetchHistory: async () => {
         const user = auth.currentUser;
         if (user) {
+          const path = 'history';
           try {
             const q = query(
               collection(db, 'history'),
@@ -99,7 +158,7 @@ export const useAppStore = create<AppState>()(
             fetchedHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             set({ history: fetchedHistory });
           } catch (error) {
-            console.error("Error fetching history from Firestore", error);
+            handleFirestoreError(error, OperationType.GET, path);
           }
         }
       }

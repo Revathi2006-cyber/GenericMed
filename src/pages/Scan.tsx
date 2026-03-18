@@ -1,17 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image as ImageIcon, Loader2, ArrowLeft } from 'lucide-react';
+import { Camera, Image as ImageIcon, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { analyzePrescription } from '../services/geminiService';
 
 export function Scan() {
   const navigate = useNavigate();
-  const { prescriptionImage, setPrescriptionImage, setResults, setIsLoading, isLoading, saveToHistory } = useAppStore();
+  const { prescriptionImage, setPrescriptionImage, results, setResults, setIsLoading, isLoading, saveToHistory } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(prescriptionImage);
+  const [showOverlay, setShowOverlay] = useState(false);
 
   useEffect(() => {
     setPreview(prescriptionImage);
+    setShowOverlay(false);
   }, [prescriptionImage]);
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -20,8 +22,48 @@ export function Scan() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        setPreview(base64String);
-        setPrescriptionImage(base64String);
+        const img = new Image();
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimension 1200px
+          const MAX_DIMENSION = 1200;
+          if (width > height && width > MAX_DIMENSION) {
+            height *= MAX_DIMENSION / width;
+            width = MAX_DIMENSION;
+          } else if (height > MAX_DIMENSION) {
+            width *= MAX_DIMENSION / height;
+            height = MAX_DIMENSION;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          // Fill with white background in case of transparent PNG
+          if (ctx) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setPreview(compressedBase64);
+          setPrescriptionImage(compressedBase64);
+          setShowOverlay(false);
+        };
+        
+        img.onerror = () => {
+          // Fallback if image cannot be loaded into canvas (e.g., HEIC on some browsers)
+          setPreview(base64String);
+          setPrescriptionImage(base64String);
+          setShowOverlay(false);
+        };
+        
+        img.src = base64String;
       };
       reader.readAsDataURL(file);
     }
@@ -32,10 +74,10 @@ export function Scan() {
     
     setIsLoading(true);
     try {
-      const results = await analyzePrescription(preview);
-      setResults(results);
-      saveToHistory(preview, results);
-      navigate('/results');
+      const analysisResults = await analyzePrescription(preview);
+      setResults(analysisResults);
+      saveToHistory(preview, analysisResults);
+      setShowOverlay(true);
     } catch (error) {
       alert("Failed to analyze prescription. Please try again.");
     } finally {
@@ -49,12 +91,12 @@ export function Scan() {
       {!preview ? (
         <div className="w-full space-y-6">
           <div className="flex items-center gap-4 mb-2">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-[#1E293B] text-white">
+            <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-[#1E293B] text-slate-900 dark:text-white">
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <h2 className="text-2xl font-bold text-white">Scan Prescription</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Scan Prescription</h2>
           </div>
-          <p className="text-[#94A3B8]">
+          <p className="text-slate-500 dark:text-[#94A3B8]">
             Take a clear photo of your doctor's prescription.
           </p>
 
@@ -67,8 +109,8 @@ export function Scan() {
               <span className="text-lg font-semibold text-[#00A3FF]">Open Camera</span>
             </button>
             
-            <label className="flex items-center justify-center gap-2 p-4 rounded-xl cursor-pointer transition-colors bg-[#1E293B] hover:bg-[#2A374A] text-white">
-              <ImageIcon className="w-6 h-6 text-[#94A3B8]" />
+            <label className="flex items-center justify-center gap-2 p-4 rounded-xl cursor-pointer transition-colors bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#2A374A] text-slate-900 dark:text-white">
+              <ImageIcon className="w-6 h-6 text-slate-500 dark:text-[#94A3B8]" />
               <span className="font-medium">Upload from Gallery</span>
               <input
                 type="file"
@@ -90,12 +132,34 @@ export function Scan() {
         </div>
       ) : (
         <div className="w-full space-y-6">
-          <div className="relative rounded-2xl overflow-hidden shadow-lg border-4 border-[#1E293B]">
+          <div className="relative rounded-2xl overflow-hidden shadow-lg border-4 border-slate-200 dark:border-[#1E293B]">
             <img src={preview} alt="Prescription preview" className="w-full h-auto object-contain max-h-[60vh]" />
+            
+            {showOverlay && results.map((result, index) => {
+              if (!result.boundingBox) return null;
+              const [ymin, xmin, ymax, xmax] = result.boundingBox;
+              const top = `${(ymin / 1000) * 100}%`;
+              const left = `${(xmin / 1000) * 100}%`;
+              const height = `${((ymax - ymin) / 1000) * 100}%`;
+              const width = `${((xmax - xmin) / 1000) * 100}%`;
+
+              return (
+                <div
+                  key={index}
+                  className="absolute border-2 border-[#00A3FF] bg-[#00A3FF]/20 rounded shadow-[0_0_10px_rgba(0,163,255,0.5)] flex items-start justify-start"
+                  style={{ top, left, width, height }}
+                >
+                  <span className="bg-[#00A3FF] text-white text-xs font-bold px-1.5 py-0.5 rounded-br -mt-0.5 -ml-0.5 whitespace-nowrap">
+                    {result.brandedName}
+                  </span>
+                </div>
+              );
+            })}
+
             {isLoading && (
-              <div className="absolute inset-0 bg-[#0B1120]/80 backdrop-blur-sm flex flex-col items-center justify-center">
+              <div className="absolute inset-0 bg-slate-50 dark:bg-[#0B1120]/80 backdrop-blur-sm flex flex-col items-center justify-center">
                 <Loader2 className="w-12 h-12 text-[#00A3FF] animate-spin mb-4" />
-                <p className="text-white font-medium text-lg">Analyzing prescription...</p>
+                <p className="text-slate-900 dark:text-white font-medium text-lg">Analyzing prescription...</p>
               </div>
             )}
           </div>
@@ -105,19 +169,29 @@ export function Scan() {
               onClick={() => {
                 setPreview(null);
                 setPrescriptionImage(null);
+                setShowOverlay(false);
               }}
               disabled={isLoading}
-              className="flex-1 py-4 rounded-xl font-bold text-lg transition-colors bg-[#1E293B] hover:bg-[#2A374A] text-white"
+              className="flex-1 py-4 rounded-xl font-bold text-lg transition-colors bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#2A374A] text-slate-900 dark:text-white"
             >
               Retake
             </button>
-            <button
-              onClick={handleAnalyze}
-              disabled={isLoading}
-              className="flex-1 py-4 bg-[#00A3FF] hover:bg-[#008BDB] text-white font-bold rounded-xl transition-colors text-lg flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,163,255,0.25)]"
-            >
-              {isLoading ? 'Processing...' : 'Find Generics'}
-            </button>
+            {!showOverlay ? (
+              <button
+                onClick={handleAnalyze}
+                disabled={isLoading}
+                className="flex-1 py-4 bg-[#00A3FF] hover:bg-[#008BDB] text-white font-bold rounded-xl transition-colors text-lg flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,163,255,0.25)]"
+              >
+                {isLoading ? 'Processing...' : 'Find Generics'}
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/results')}
+                className="flex-1 py-4 bg-[#10B981] hover:bg-[#059669] text-white font-bold rounded-xl transition-colors text-lg flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
+              >
+                View Details <ArrowLeft className="w-5 h-5 rotate-180" />
+              </button>
+            )}
           </div>
         </div>
       )}

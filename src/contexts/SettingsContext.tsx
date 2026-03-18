@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 type Theme = 'dark' | 'light';
 type FontSize = 'normal' | 'large' | 'extra-large';
@@ -72,23 +73,47 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
-  const [fontSize, setFontSize] = useState<FontSize>('large'); // Default to large for elderly
-  const [notificationSound, setNotificationSound] = useState<NotificationSound>('default');
+  const { profile } = useAuth();
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as Theme) || 'light';
+  });
+  const [fontSize, setFontSize] = useState<FontSize>(() => {
+    const saved = localStorage.getItem('fontSize');
+    return (saved as FontSize) || 'large';
+  });
+  const [notificationSound, setNotificationSound] = useState<NotificationSound>(() => {
+    const saved = localStorage.getItem('notificationSound');
+    return (saved as NotificationSound) || 'default';
+  });
+
+  // Sync with profile if it exists
+  useEffect(() => {
+    if (profile) {
+      if (profile.theme) setTheme(profile.theme);
+      if (profile.fontSize) setFontSize(profile.fontSize);
+    }
+  }, [profile]);
 
   useEffect(() => {
+    localStorage.setItem('theme', theme);
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
   }, [theme]);
 
   useEffect(() => {
+    localStorage.setItem('fontSize', fontSize);
     const root = window.document.documentElement;
     root.classList.remove('text-base', 'text-lg', 'text-xl');
     if (fontSize === 'normal') root.classList.add('text-base');
     if (fontSize === 'large') root.classList.add('text-lg');
     if (fontSize === 'extra-large') root.classList.add('text-xl');
   }, [fontSize]);
+
+  useEffect(() => {
+    localStorage.setItem('notificationSound', notificationSound);
+  }, [notificationSound]);
 
   return (
     <SettingsContext.Provider value={{ theme, setTheme, fontSize, setFontSize, notificationSound, setNotificationSound }}>

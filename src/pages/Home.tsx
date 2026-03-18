@@ -69,29 +69,29 @@ export function Home() {
   return (
     <div className="px-4 space-y-4">
       {/* Hero Card */}
-      <div className="bg-[#111C33] border border-[#1E293B] rounded-2xl p-6">
-        <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">Save up to 80%<br/>on medicines</h2>
-        <p className="text-[#94A3B8] text-sm leading-relaxed mb-4">
+      <div className="bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B] rounded-2xl p-6">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">Save up to 80%<br/>on medicines</h2>
+        <p className="text-slate-500 dark:text-[#94A3B8] text-sm leading-relaxed mb-4">
           Scan your prescription to instantly find affordable generic alternatives with the same active ingredients.
         </p>
 
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-[#94A3B8]" />
+            <Search className="h-5 w-5 text-slate-500 dark:text-[#94A3B8]" />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search medicine name..."
-            className="block w-full pl-10 pr-12 py-3 bg-[#0B1120] border border-[#1E293B] rounded-xl text-white placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00A3FF] focus:border-transparent transition-all"
+            className="block w-full pl-10 pr-12 py-3 bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-[#1E293B] rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#00A3FF] focus:border-transparent transition-all"
             disabled={isSearching}
           />
           <button
             type="submit"
             disabled={!searchQuery.trim() || isSearching}
-            className="absolute inset-y-1 right-1 px-3 bg-[#00A3FF] hover:bg-[#008BDB] disabled:bg-[#1E293B] disabled:text-[#94A3B8] text-white rounded-lg flex items-center justify-center transition-colors"
+            className="absolute inset-y-1 right-1 px-3 bg-[#00A3FF] hover:bg-[#008BDB] disabled:bg-slate-100 disabled:dark:bg-[#1E293B] disabled:text-slate-400 disabled:dark:text-[#94A3B8] text-white rounded-lg flex items-center justify-center transition-colors"
           >
             {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Find'}
           </button>
@@ -109,7 +109,7 @@ export function Home() {
         
         <button 
           onClick={() => fileInputRef.current?.click()}
-          className="w-full bg-[#1E293B] hover:bg-[#2A374A] text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 transition-all"
+          className="w-full bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#2A374A] text-slate-900 dark:text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 transition-all"
         >
           <Upload className="w-5 h-5" /> Upload Photo
         </button>
@@ -127,27 +127,27 @@ export function Home() {
         <button 
           onClick={handleFindStores}
           disabled={isLocating}
-          className="bg-transparent border border-[#1E293B] hover:bg-[#111C33] disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all"
+          className="bg-transparent border border-slate-200 dark:border-[#1E293B] hover:bg-white dark:hover:bg-[#111C33] disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-white py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all"
         >
           {isLocating ? (
             <Loader2 className="w-6 h-6 text-[#00A3FF] animate-spin" />
           ) : (
-            <Store className="w-6 h-6 text-[#94A3B8]" />
+            <Store className="w-6 h-6 text-slate-500 dark:text-[#94A3B8]" />
           )}
           <span className="text-xs font-semibold">{isLocating ? 'Locating...' : 'Find Stores'}</span>
         </button>
         <button 
           onClick={() => navigate('/reminders')}
-          className="bg-transparent border border-[#1E293B] hover:bg-[#111C33] text-white py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all"
+          className="bg-transparent border border-slate-200 dark:border-[#1E293B] hover:bg-white dark:hover:bg-[#111C33] text-slate-900 dark:text-white py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all"
         >
-          <Bell className="w-6 h-6 text-[#94A3B8]" />
+          <Bell className="w-6 h-6 text-slate-500 dark:text-[#94A3B8]" />
           <span className="text-xs font-semibold">Reminders</span>
         </button>
         <button 
           onClick={() => navigate('/history')}
-          className="bg-transparent border border-[#1E293B] hover:bg-[#111C33] text-white py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all"
+          className="bg-transparent border border-slate-200 dark:border-[#1E293B] hover:bg-white dark:hover:bg-[#111C33] text-slate-900 dark:text-white py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all"
         >
-          <Clock className="w-6 h-6 text-[#94A3B8]" />
+          <Clock className="w-6 h-6 text-slate-500 dark:text-[#94A3B8]" />
           <span className="text-xs font-semibold">History</span>
         </button>
       </div>
@@ -176,13 +176,13 @@ export function Home() {
 
 function FeatureItem({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl bg-[#111C33] border border-[#1E293B]">
+    <div className="flex items-center gap-4 p-4 rounded-xl bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B]">
       <div className="w-10 h-10 rounded-full bg-[#00A3FF]/10 flex items-center justify-center flex-shrink-0">
         {icon}
       </div>
       <div>
-        <h4 className="font-semibold text-sm text-white">{title}</h4>
-        <p className="text-xs text-[#94A3B8] mt-0.5">{desc}</p>
+        <h4 className="font-semibold text-sm text-slate-900 dark:text-white">{title}</h4>
+        <p className="text-xs text-slate-500 dark:text-[#94A3B8] mt-0.5">{desc}</p>
       </div>
     </div>
   );

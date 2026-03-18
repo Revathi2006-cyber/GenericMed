@@ -11,6 +11,8 @@ import { Reminders } from './pages/Reminders';
 import { History } from './pages/History';
 import { Login } from './pages/Login';
 import { SignUp } from './pages/SignUp';
+import { Profile } from './pages/Profile';
+import { Onboarding } from './pages/Onboarding';
 import { ReminderSystem } from './components/ReminderSystem';
 
 export default function App() {
@@ -24,6 +26,7 @@ export default function App() {
             <Route path="/signup" element={<SignUp />} />
             
             <Route element={<ProtectedRoute />}>
+              <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="scan" element={<Scan />} />
@@ -31,6 +34,7 @@ export default function App() {
                 <Route path="settings" element={<Settings />} />
                 <Route path="reminders" element={<Reminders />} />
                 <Route path="history" element={<History />} />
+                <Route path="profile" element={<Profile />} />
               </Route>
             </Route>
           </Routes>

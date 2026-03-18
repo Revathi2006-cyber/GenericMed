@@ -7,7 +7,10 @@
       "properties": {
         "uid": { "type": "string", "description": "User ID" },
         "email": { "type": "string", "description": "User email address" },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "hasCompletedOnboarding": { "type": "boolean", "description": "Whether the user has completed the onboarding process" },
+        "theme": { "type": "string", "enum": ["light", "dark"], "description": "User's preferred theme" },
+        "fontSize": { "type": "string", "enum": ["normal", "large", "extra-large"], "description": "User's preferred font size" }
       },
       "required": ["uid", "email", "createdAt"]
     },
@@ -16,6 +19,7 @@
       "description": "A scanned prescription or searched medicine history item",
       "type": "object",
       "properties": {
+        "id": { "type": "string", "description": "Unique ID of the history item" },
         "uid": { "type": "string", "description": "Owner User ID" },
         "date": { "type": "string", "format": "date-time", "description": "Date of scan/search" },
         "image": { "type": "string", "description": "Base64 image or empty string" },
@@ -25,7 +29,7 @@
           "description": "Array of medicine results"
         }
       },
-      "required": ["uid", "date", "image", "results"]
+      "required": ["id", "uid", "date", "image", "results"]
     }
   },
   "firestore": {

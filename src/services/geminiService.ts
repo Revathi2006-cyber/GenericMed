@@ -11,22 +11,31 @@ export interface MedicineResult {
   savings: number;
   sideEffects: string[];
   interactions: string[];
+  boundingBox?: [number, number, number, number]; // [ymin, xmin, ymax, xmax] normalized 0-1000
+  complementaryCare?: {
+    homeRemedies: string[];
+    ayurvedaSuggestions: { herb: string; benefit: string }[];
+  };
 }
 
 export async function analyzePrescription(base64Image: string): Promise<MedicineResult[]> {
   try {
+    const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9.+]+);base64,/);
+    const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
+    const base64Data = base64Image.split(',')[1];
+
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
       contents: {
         parts: [
           {
             inlineData: {
-              data: base64Image.split(',')[1],
-              mimeType: "image/jpeg",
+              data: base64Data,
+              mimeType: mimeType,
             },
           },
           {
-            text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects and potential drug interactions. Return the data as a JSON array of objects.",
+            text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects and potential drug interactions. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects.",
           },
         ],
       },
@@ -52,6 +61,35 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
                 description: "List of potential drug or food interactions"
+              },
+              boundingBox: {
+                type: Type.ARRAY,
+                items: { type: Type.INTEGER },
+                description: "Bounding box of the medicine name [ymin, xmin, ymax, xmax] normalized 0-1000"
+              },
+              complementaryCare: {
+                type: Type.OBJECT,
+                description: "Supportive lifestyle and complementary care suggestions",
+                properties: {
+                  homeRemedies: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "List of home remedies or lifestyle changes"
+                  },
+                  ayurvedaSuggestions: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        herb: { type: Type.STRING },
+                        benefit: { type: Type.STRING }
+                      },
+                      required: ["herb", "benefit"]
+                    },
+                    description: "List of light ayurvedic suggestions"
+                  }
+                },
+                required: ["homeRemedies", "ayurvedaSuggestions"]
               }
             },
             required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions"],
@@ -77,7 +115,7 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
       contents: {
         parts: [
           {
-            text: `Find the generic equivalent for the medicine: "${query}". Provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects and potential drug interactions. Return the data as a JSON array of objects.`,
+            text: `Find the generic equivalent for the medicine: "${query}". Provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects and potential drug interactions. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Return the data as a JSON array of objects.`,
           },
         ],
       },
@@ -103,6 +141,30 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
                 description: "List of potential drug or food interactions"
+              },
+              complementaryCare: {
+                type: Type.OBJECT,
+                description: "Supportive lifestyle and complementary care suggestions",
+                properties: {
+                  homeRemedies: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "List of home remedies or lifestyle changes"
+                  },
+                  ayurvedaSuggestions: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        herb: { type: Type.STRING },
+                        benefit: { type: Type.STRING }
+                      },
+                      required: ["herb", "benefit"]
+                    },
+                    description: "List of light ayurvedic suggestions"
+                  }
+                },
+                required: ["homeRemedies", "ayurvedaSuggestions"]
               }
             },
             required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions"],
