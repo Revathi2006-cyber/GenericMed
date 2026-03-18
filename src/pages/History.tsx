@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Trash2, ChevronRight, AlertTriangle, X } from 'lucide-react';
+import { ArrowLeft, Clock, Trash2, ChevronRight, AlertTriangle, X, Search } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -8,6 +8,7 @@ export function History() {
   const navigate = useNavigate();
   const { history, clearHistory, setResults, setPrescriptionImage } = useAppStore();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleViewResult = (item: any) => {
     setResults(item.results);
@@ -19,6 +20,14 @@ export function History() {
     await clearHistory();
     setShowConfirm(false);
   };
+
+  const filteredHistory = history.filter((item) => {
+    if (!searchQuery) return true;
+    return item.results.some((r: any) => 
+      r.brandedName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.genericName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   return (
     <div className="px-4 space-y-6 pb-24 relative min-h-screen">
@@ -39,6 +48,19 @@ export function History() {
           </button>
         )}
       </div>
+
+      {history.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by medicine name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-100 dark:bg-[#1E293B] text-slate-900 dark:text-white placeholder-slate-400 border border-transparent focus:border-[#00A3FF] outline-none transition-all"
+          />
+        </div>
+      )}
 
       <AnimatePresence>
         {showConfirm && (
@@ -95,9 +117,13 @@ export function History() {
             Scan Now
           </button>
         </div>
+      ) : filteredHistory.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 dark:text-[#94A3B8]">
+          No prescriptions found matching "{searchQuery}"
+        </div>
       ) : (
         <div className="space-y-4">
-          {history.map((item) => (
+          {filteredHistory.map((item) => (
             <div 
               key={item.id} 
               onClick={() => handleViewResult(item)}

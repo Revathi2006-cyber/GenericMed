@@ -1,17 +1,30 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sun, Moon, Type, Check, Loader2, Activity, ArrowRight } from 'lucide-react';
+import { Sun, Moon, Type, Check, Loader2, Activity, ArrowRight, Bell, Volume2, Clock } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { useSettings } from '../contexts/SettingsContext';
+import { useSettings, SOUND_OPTIONS, playNotificationSound } from '../contexts/SettingsContext';
 
 export function Onboarding() {
   const navigate = useNavigate();
-  const { theme, setTheme, fontSize, setFontSize } = useSettings();
+  const { 
+    theme, setTheme, 
+    fontSize, setFontSize,
+    notificationSound, setNotificationSound,
+    reminderTiming, setReminderTiming
+  } = useSettings();
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
 
-  const totalSteps = 3;
+  const totalSteps = 5;
+
+  const TIMING_OPTIONS = [
+    { label: 'At time of medication', value: 0 },
+    { label: '5 minutes before', value: 5 },
+    { label: '10 minutes before', value: 10 },
+    { label: '15 minutes before', value: 15 },
+    { label: '30 minutes before', value: 30 },
+  ];
 
   const handleComplete = async () => {
     const user = auth.currentUser;
@@ -22,7 +35,9 @@ export function Onboarding() {
       await updateDoc(doc(db, 'users', user.uid), {
         hasCompletedOnboarding: true,
         theme,
-        fontSize
+        fontSize,
+        notificationSound,
+        reminderTiming
       });
       navigate('/', { replace: true });
     } catch (error) {
@@ -43,11 +58,11 @@ export function Onboarding() {
         <div className="relative z-10">
           {/* Progress Bar */}
           <div className="flex gap-1.5 mb-8">
-            {[1, 2, 3].map((s) => (
+            {Array.from({ length: totalSteps }).map((_, i) => (
               <div 
-                key={s}
+                key={i}
                 className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-                  step >= s ? 'bg-[#00A3FF]' : 'bg-slate-100 dark:bg-[#1E293B]'
+                  step >= i + 1 ? 'bg-[#00A3FF]' : 'bg-slate-100 dark:bg-[#1E293B]'
                 }`} 
               />
             ))}
@@ -195,6 +210,100 @@ export function Onboarding() {
                   Back
                 </button>
                 <button
+                  onClick={() => setStep(4)}
+                  className="flex-[2] py-4 bg-[#00A3FF] hover:bg-[#008BDB] text-white font-black rounded-2xl shadow-lg transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white">Reminder Sound</h2>
+                <p className="text-slate-500 dark:text-[#94A3B8]">Pick a sound for your medication alerts.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {SOUND_OPTIONS.map((sound) => (
+                  <button
+                    key={sound}
+                    onClick={() => {
+                      setNotificationSound(sound);
+                      playNotificationSound(sound);
+                    }}
+                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                      notificationSound === sound 
+                        ? 'border-[#00A3FF] bg-[#00A3FF]/5 text-[#00A3FF]' 
+                        : 'border-slate-100 dark:border-[#1E293B] bg-slate-50 dark:bg-[#0B1120] text-slate-400'
+                    }`}
+                  >
+                    <Volume2 className="w-6 h-6" />
+                    <span className="font-black uppercase tracking-wider text-[10px]">{sound}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setStep(3)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-[#1E293B] text-slate-900 dark:text-white font-bold rounded-2xl transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => setStep(5)}
+                  className="flex-[2] py-4 bg-[#00A3FF] hover:bg-[#008BDB] text-white font-black rounded-2xl shadow-lg transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white">Reminder Timing</h2>
+                <p className="text-slate-500 dark:text-[#94A3B8]">When should we notify you?</p>
+              </div>
+
+              <div className="space-y-3">
+                {TIMING_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setReminderTiming(option.value)}
+                    className={`w-full p-5 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${
+                      reminderTiming === option.value 
+                        ? 'border-[#00A3FF] bg-[#00A3FF]/5' 
+                        : 'border-slate-100 dark:border-[#1E293B] bg-slate-50 dark:bg-[#0B1120]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Clock className={`w-5 h-5 ${reminderTiming === option.value ? 'text-[#00A3FF]' : 'text-slate-400'}`} />
+                      <span className={`font-bold ${reminderTiming === option.value ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-[#94A3B8]'}`}>
+                        {option.label}
+                      </span>
+                    </div>
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                      reminderTiming === option.value ? 'border-[#00A3FF] bg-[#00A3FF]' : 'border-slate-300 dark:border-slate-700'
+                    }`}>
+                      {reminderTiming === option.value && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setStep(4)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-[#1E293B] text-slate-900 dark:text-white font-bold rounded-2xl transition-all"
+                >
+                  Back
+                </button>
+                <button
                   onClick={handleComplete}
                   disabled={isSaving}
                   className="flex-[2] py-4 bg-[#00A3FF] hover:bg-[#008BDB] text-white font-black rounded-2xl shadow-[0_0_20px_rgba(0,163,255,0.3)] transition-all flex items-center justify-center gap-2"
@@ -209,3 +318,4 @@ export function Onboarding() {
     </div>
   );
 }
+

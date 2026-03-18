@@ -98,7 +98,6 @@ export function Results() {
   const { results } = useAppStore();
   const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedForComparison, setSelectedForComparison] = useState<number[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
@@ -152,7 +151,7 @@ export function Results() {
     }
   };
 
-  const generatePDF = () => {
+  const generatePDFBlob = (): Blob => {
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.text("GenericMed Savings Report", 20, 20);
@@ -247,7 +246,37 @@ export function Results() {
       yPos = currentY + 10;
     });
     
-    doc.save("GenericMed_Savings_Report.pdf");
+    return doc.output('blob');
+  };
+
+  const handleDownloadPDF = () => {
+    const blob = generatePDFBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'GenericMed_Savings_Report.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSharePDF = async () => {
+    const pdfBlob = generatePDFBlob();
+    const file = new File([pdfBlob], "GenericMed_Savings_Report.pdf", { type: "application/pdf" });
+    
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'My Medicine Savings Report',
+          text: 'Check out how much I saved on my medicines with GenericMed!'
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+        handleDownloadPDF();
+      }
+    } else {
+      handleDownloadPDF();
+    }
   };
 
   const shareText = `GenericMed Savings Report\nTotal Branded: ₹${totalBranded}\nTotal Generic: ₹${totalGeneric}\nTotal Savings: ₹${totalSavings}\n\nMedicines:\n${results.map(r => {
@@ -285,7 +314,6 @@ export function Results() {
           title: 'My Medicine Savings',
           text: shareText,
         });
-        setShowShareModal(false);
       } catch (err) {
         console.error('Error sharing:', err);
       }
@@ -355,14 +383,14 @@ export function Results() {
 
         <div className="mt-6 flex gap-3">
           <button 
-            onClick={generatePDF}
+            onClick={handleDownloadPDF}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-[#1E293B] hover:bg-slate-200 dark:hover:bg-[#2A374A] text-slate-900 dark:text-white rounded-xl font-medium transition-colors"
           >
             <FileDown className="w-5 h-5" />
             Save PDF
           </button>
           <button 
-            onClick={() => setShowShareModal(true)}
+            onClick={handleSharePDF}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-900 dark:text-white rounded-xl font-medium transition-colors"
           >
             <Share2 className="w-5 h-5" />
@@ -887,7 +915,7 @@ export function Results() {
       )}
 
       {/* Share Modal */}
-      {showShareModal && (
+      {/* {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50 dark:bg-[#0B1120]/80 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#111C33] border border-slate-200 dark:border-[#1E293B] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-[#1E293B]">
@@ -962,7 +990,7 @@ export function Results() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

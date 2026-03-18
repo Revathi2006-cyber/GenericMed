@@ -1,8 +1,13 @@
-import { Moon, Sun, Type, HelpCircle, Bell, Volume2, Clock, Repeat } from 'lucide-react';
+import { useState } from 'react';
+import { Moon, Sun, Type, HelpCircle, Bell, Volume2, Clock, Repeat, Save, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useSettings, SOUND_OPTIONS, playNotificationSound } from '../contexts/SettingsContext';
+import { useAuth } from '../contexts/AuthContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { cn } from '../lib/utils';
 
 export function Settings() {
+  const { user } = useAuth();
   const { 
     theme, setTheme, 
     fontSize, setFontSize, 
@@ -10,6 +15,9 @@ export function Settings() {
     reminderTiming, setReminderTiming,
     reminderRepeat, setReminderRepeat
   } = useSettings();
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const TIMING_OPTIONS = [
     { label: 'At time of medication', value: 0 },
@@ -25,9 +33,75 @@ export function Settings() {
     { label: 'Three times (5m apart)', value: 3 },
   ];
 
+  const handleSave = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    setSaveStatus('idle');
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        theme,
+        fontSize,
+        notificationSound,
+        reminderTiming,
+        reminderRepeat,
+        updatedAt: new Date().toISOString()
+      });
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      setSaveStatus('error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="p-4 max-w-md mx-auto pb-24 space-y-6">
-      <h2 className="text-2xl font-bold mb-6">Settings</h2>
+    <div className="p-4 max-w-md mx-auto pb-32 space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">Settings</h2>
+        {user && (
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all shadow-lg",
+              saveStatus === 'success' 
+                ? "bg-emerald-500 text-white" 
+                : saveStatus === 'error'
+                  ? "bg-rose-500 text-white"
+                  : "bg-[#00A3FF] hover:bg-[#008BDB] text-white disabled:opacity-50"
+            )}
+          >
+            {isSaving ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : saveStatus === 'success' ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : saveStatus === 'error' ? (
+              <AlertCircle className="w-5 h-5" />
+            ) : (
+              <Save className="w-5 h-5" />
+            )}
+            {isSaving ? 'Saving...' : saveStatus === 'success' ? 'Saved!' : saveStatus === 'error' ? 'Error' : 'Save Settings'}
+          </button>
+        )}
+      </div>
+
+      {saveStatus === 'success' && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <CheckCircle2 className="w-5 h-5" />
+          Settings saved successfully to your profile.
+        </div>
+      )}
+
+      {saveStatus === 'error' && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <AlertCircle className="w-5 h-5" />
+          Failed to save settings. Please try again.
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Theme Settings */}
