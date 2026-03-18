@@ -279,6 +279,24 @@ export function Results() {
     }
   };
 
+  const handleShareMedicine = async (item: any) => {
+    const shareText = `Medicine: ${item.genericName}\nBranded: ${item.brandedName}\nSavings: ₹${item.savings}\nUsage: ${item.usageInstructions}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Medicine Savings',
+          text: shareText,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+      alert('Copied to clipboard!');
+    }
+  };
+
   const shareText = `GenericMed Savings Report\nTotal Branded: ₹${totalBranded}\nTotal Generic: ₹${totalGeneric}\nTotal Savings: ₹${totalSavings}\n\nMedicines:\n${results.map(r => {
     let details = `- ${r.brandedName} -> ${r.genericName} (Save ₹${r.savings})\n  Salt: ${r.saltComposition}`;
     if (r.sideEffects && r.sideEffects.length > 0) {
@@ -627,7 +645,12 @@ export function Results() {
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-1 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Generic Alternative
                   </span>
+                <div className="flex items-center gap-2">
                   <h4 className="text-xl font-bold text-[#00A3FF]">{item.genericName}</h4>
+                  <button onClick={() => handleShareMedicine(item)} className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-[#2A374A] text-slate-500 dark:text-[#94A3B8]">
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                </div>
                   <p className="text-lg font-semibold mt-1 text-slate-900 dark:text-white">₹{item.genericPrice}</p>
                 </div>
                 <CopyGenericName name={item.genericName} />

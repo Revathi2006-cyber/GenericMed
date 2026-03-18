@@ -8,6 +8,7 @@ export interface Reminder {
   time: string; // HH:mm format
   days: string[]; // e.g., ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   isActive: boolean;
+  expirationDate?: string; // YYYY-MM-DD format
 }
 
 interface ReminderState {

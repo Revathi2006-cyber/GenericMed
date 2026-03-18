@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Clock, Pill, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, Pill, Trash2, X, AlertTriangle } from 'lucide-react';
 import { useReminderStore } from '../store/useReminderStore';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -13,6 +13,7 @@ export function Reminders() {
   const [newMedicine, setNewMedicine] = useState('');
   const [newDosage, setNewDosage] = useState('');
   const [newTime, setNewTime] = useState('08:00');
+  const [newExpirationDate, setNewExpirationDate] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>(DAYS);
 
   const handleAdd = () => {
@@ -24,11 +25,13 @@ export function Reminders() {
       time: newTime,
       days: selectedDays,
       isActive: true,
+      expirationDate: newExpirationDate || undefined,
     });
     
     setNewMedicine('');
     setNewDosage('');
     setNewTime('08:00');
+    setNewExpirationDate('');
     setSelectedDays(DAYS);
     setIsAdding(false);
   };
@@ -78,7 +81,7 @@ export function Reminders() {
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-[#94A3B8] mb-1">Dosage</label>
               <input 
@@ -89,14 +92,25 @@ export function Reminders() {
                 className="w-full bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-[#1E293B] rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-[#00A3FF]"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-[#94A3B8] mb-1">Time</label>
-              <input 
-                type="time" 
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-[#1E293B] rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-[#00A3FF] [color-scheme:dark]"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-[#94A3B8] mb-1">Time</label>
+                <input 
+                  type="time" 
+                  value={newTime}
+                  onChange={(e) => setNewTime(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-[#1E293B] rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-[#00A3FF] [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-[#94A3B8] mb-1">Expiration Date</label>
+                <input 
+                  type="date" 
+                  value={newExpirationDate}
+                  onChange={(e) => setNewExpirationDate(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#0B1120] border border-slate-200 dark:border-[#1E293B] rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:outline-none focus:border-[#00A3FF] [color-scheme:dark]"
+                />
+              </div>
             </div>
           </div>
 
@@ -158,9 +172,23 @@ export function Reminders() {
                   <div>
                     <h4 className="font-bold text-slate-900 dark:text-white text-lg leading-tight">{reminder.medicineName}</h4>
                     <p className="text-sm text-slate-500 dark:text-[#94A3B8] mt-0.5">{reminder.dosage}</p>
-                    <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-[#00A3FF]">
-                      <Clock className="w-3.5 h-3.5" />
-                      {reminder.time}
+                    <div className="flex items-center gap-3 mt-2 text-xs font-medium">
+                      <span className="flex items-center gap-1.5 text-[#00A3FF]">
+                        <Clock className="w-3.5 h-3.5" />
+                        {reminder.time}
+                      </span>
+                      {reminder.expirationDate && (
+                        <span className={`flex items-center gap-1.5 ${
+                          new Date(reminder.expirationDate) < new Date() 
+                            ? 'text-rose-500' 
+                            : (new Date(reminder.expirationDate).getTime() - new Date().getTime()) < 7 * 24 * 60 * 60 * 1000 
+                              ? 'text-amber-500' 
+                              : 'text-slate-500 dark:text-[#94A3B8]'
+                        }`}>
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Expires: {reminder.expirationDate}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
