@@ -16,6 +16,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
+import { GoogleGenAI, Type } from "@google/genai";
 
 function RealTimePrices({ medicineName }: { medicineName: string }) {
   const [prices, setPrices] = useState<any[]>([]);
@@ -25,12 +26,31 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
   useEffect(() => {
     async function fetchPrices() {
       try {
-        const res = await fetch(`/api/medicine-prices?medicine=${encodeURIComponent(medicineName)}`);
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to fetch');
-        }
-        setPrices(data.results || []);
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Find online pharmacy prices and purchase links for ${medicineName}.`,
+          config: {
+            tools: [{ googleSearch: {} }],
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  pharmacy: { type: Type.STRING },
+                  price: { type: Type.STRING },
+                  link: { type: Type.STRING },
+                  thumbnail: { type: Type.STRING }
+                },
+                required: ["pharmacy", "price", "link"]
+              }
+            }
+          },
+        });
+        
+        const data = JSON.parse(response.text || "[]");
+        setPrices(data);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -40,13 +60,13 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
     fetchPrices();
   }, [medicineName]);
 
-  if (loading) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] flex items-center gap-2 mt-4"><Loader2 className="w-4 h-4 animate-spin"/> Checking live pharmacy prices...</div>;
-  if (error) return <div className="text-sm text-rose-500 bg-rose-500/10 p-3 rounded-lg mt-4">Real-time prices unavailable: {error}</div>;
+  if (loading) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] flex items-center gap-2 mt-4"><Loader2 className="w-4 h-4 animate-spin"/> Searching live pharmacy prices...</div>;
+  if (error) return <div className="text-sm text-rose-500 bg-rose-500/10 p-3 rounded-lg mt-4">Prices unavailable: {error}</div>;
   if (prices.length === 0) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] mt-4">No online availability found.</div>;
 
   return (
     <div className="mt-4 space-y-3 pt-4 border-t border-slate-200 dark:border-[#1E293B]">
-      <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white"><ShoppingCart className="w-4 h-4"/> Live Online Prices</h5>
+      <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white"><ShoppingCart className="w-4 h-4"/> Online Prices</h5>
       <div className="space-y-2">
         {prices.map((p, i) => (
           <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors border border-slate-200 dark:border-[#1E293B]">
