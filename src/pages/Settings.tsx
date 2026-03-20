@@ -284,40 +284,6 @@ export function Settings() {
           </p>
         </section>
 
-        {/* System Info & Diagnostics */}
-        <section className={cn(
-          "p-6 rounded-2xl shadow-sm space-y-4",
-          theme === 'dark' ? "bg-slate-800" : "bg-white border border-slate-200"
-        )}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-slate-500/10 p-2 rounded-lg">
-              <AlertCircle className="w-6 h-6 text-slate-500" />
-            </div>
-            <h3 className="text-xl font-semibold">System Diagnostics</h3>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-              <p className="text-xs text-slate-500 mb-1 uppercase font-bold tracking-wider">Active Gemini API Key (Masked)</p>
-              <code className="text-sm font-mono break-all">
-                {process.env.GEMINI_API_KEY 
-                  ? `${process.env.GEMINI_API_KEY.substring(0, 6)}...${process.env.GEMINI_API_KEY.substring(process.env.GEMINI_API_KEY.length - 4)}`
-                  : 'Not Found'}
-              </code>
-            </div>
-            
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs space-y-2">
-              <p className="font-bold flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Important for Render Users:
-              </p>
-              <p>
-                If you just updated your API key in Render's environment variables, you <strong>MUST</strong> trigger a <strong>Manual Deploy</strong> (Clear Build Cache & Deploy) for the new key to take effect in the browser.
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* Help & Instructions */}
         <section className={cn(
           "p-6 rounded-2xl shadow-sm space-y-4",

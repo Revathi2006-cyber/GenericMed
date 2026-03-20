@@ -140,7 +140,36 @@ Return the data as a JSON array.`,
           await new Promise(resolve => setTimeout(resolve, delay));
           return handleFetchPrices(retries - 1, delay * 2);
         }
-        errorMessage = "API Quota Exceeded. This usually happens on the Free Tier. If you just updated your key in Render, please ensure you triggered a NEW DEPLOY (not just a restart) so the new key is baked into the app.";
+        
+        // If quota is hit, provide a helpful fallback instead of just an error
+        const fallbackData = [
+          {
+            pharmacy: "1mg",
+            price: "Check Website",
+            link: `https://www.1mg.com/search/all?name=${encodeURIComponent(medicineName)}`,
+            domain: "1mg.com",
+            isFallback: true
+          },
+          {
+            pharmacy: "Netmeds",
+            price: "Check Website",
+            link: `https://www.netmeds.com/catalogsearch/result?q=${encodeURIComponent(medicineName)}`,
+            domain: "netmeds.com",
+            isFallback: true
+          },
+          {
+            pharmacy: "Apollo Pharmacy",
+            price: "Check Website",
+            link: `https://www.apollopharmacy.in/search-medicines/${encodeURIComponent(medicineName)}`,
+            domain: "apollopharmacy.in",
+            isFallback: true
+          }
+        ];
+        
+        setPrices(fallbackData);
+        setError("API Quota reached. Showing direct search links to pharmacies instead.");
+        setLoading(false);
+        return;
       }
       
       setError(errorMessage);
@@ -162,7 +191,7 @@ Return the data as a JSON array.`,
 
   if (loading) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] flex items-center gap-2 mt-4 p-4 bg-slate-50 dark:bg-[#0B1120] rounded-xl border border-slate-200 dark:border-[#1E293B]"><Loader2 className="w-4 h-4 animate-spin"/> Searching live pharmacy prices...</div>;
   
-  if (error) return (
+  if (error && prices.length === 0) return (
     <div className="mt-4 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-3">
       <div className="text-sm text-rose-500 flex items-center gap-2">
         <AlertTriangle className="w-4 h-4" />
@@ -181,7 +210,16 @@ Return the data as a JSON array.`,
 
   return (
     <div className="mt-4 space-y-3 pt-4 border-t border-slate-200 dark:border-[#1E293B]">
-      <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white"><ShoppingCart className="w-4 h-4"/> Online Prices</h5>
+      <div className="flex items-center justify-between">
+        <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white">
+          <ShoppingCart className="w-4 h-4"/> Online Prices
+        </h5>
+        {error && (
+          <span className="text-[10px] text-amber-500 font-medium flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" /> Quota reached (using search links)
+          </span>
+        )}
+      </div>
       <div className="space-y-2">
         {prices.map((p, i) => (
           <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors border border-slate-200 dark:border-[#1E293B]">
