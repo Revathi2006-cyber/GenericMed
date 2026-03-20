@@ -13,6 +13,14 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Log requests in production to help diagnose blank screen
+  if (process.env.NODE_ENV === "production") {
+    app.use((req, res, next) => {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+      next();
+    });
+  }
+
   app.get("/api/medicine-prices", async (req, res) => {
     const { medicine } = req.query;
     if (!medicine) {
@@ -65,9 +73,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    // Production: Serve static files from dist
+    const distPath = path.resolve(process.cwd(), 'dist');
+    app.use(express.static(distPath, { index: false }));
+    
+    app.get('*', (req, res, next) => {
+      // If it's an API request, let it pass through (though API routes are defined above)
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
