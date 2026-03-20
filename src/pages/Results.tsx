@@ -46,22 +46,44 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
   const [hasStarted, setHasStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load from cache on mount
+  useEffect(() => {
+    const cached = localStorage.getItem(`prices_${medicineName}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Only use cache if it's less than 24 hours old
+        if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          setPrices(parsed.data);
+          setHasStarted(true);
+        }
+      } catch (e) {
+        console.error("Failed to parse cached prices", e);
+      }
+    }
+  }, [medicineName]);
+
   const handleFetchPrices = async (retries = 3, delay = 1000) => {
     setLoading(true);
     setHasStarted(true);
     setError(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const apiKey = process.env.GEMINI_API_KEY || "";
+      if (!apiKey) {
+        throw new Error("API key is missing. Please ensure GEMINI_API_KEY is set in your environment.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Find online pharmacy prices and purchase links for ${medicineName}. For each pharmacy, provide:
-1. The pharmacy name.
-2. The price.
-3. The purchase link.
-4. The official website domain (e.g., "1mg.com").
-5. A direct, high-quality, publicly accessible URL to their official logo.
+        contents: `Find online pharmacy prices and purchase links for ${medicineName} in India. For each pharmacy, provide:
+1. The pharmacy name (e.g., Apollo, Netmeds, 1mg, Pharmeasy).
+2. The current price in INR.
+3. The direct purchase link.
+4. The official website domain.
+5. A direct logo URL.
 
-If you cannot find a direct logo URL, you MUST provide the official website domain.`,
+Return the data as a JSON array.`,
         config: {
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
@@ -83,7 +105,13 @@ If you cannot find a direct logo URL, you MUST provide the official website doma
       });
       
       const data = JSON.parse(response.text || "[]");
-      console.log("Pharmacy data:", data);
+      
+      // Save to cache
+      localStorage.setItem(`prices_${medicineName}`, JSON.stringify({
+        timestamp: Date.now(),
+        data
+      }));
+
       setPrices(data);
       setLoading(false);
     } catch (err: any) {
@@ -98,21 +126,21 @@ If you cannot find a direct logo URL, you MUST provide the official website doma
             errorMessage = parsedError.error.message;
           }
         } catch (e) {
-          console.error("Failed to parse error JSON:", e);
+          // ignore
         }
       }
 
-      const isQuotaExceeded = errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('limit');
-      const isRateLimit = errorMessage.includes('429') || err.status === 429;
-
-      if (isRateLimit && !isQuotaExceeded && retries > 0) {
-        console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return handleFetchPrices(retries - 1, delay * 2);
-      }
+      const isQuotaExceeded = errorMessage.toLowerCase().includes('quota') || 
+                             errorMessage.toLowerCase().includes('limit') ||
+                             errorMessage.includes('429');
       
       if (isQuotaExceeded) {
-        errorMessage = "Daily API quota reached. Please try again later or upgrade your Gemini API plan.";
+        if (errorMessage.includes('429') && retries > 0) {
+          console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return handleFetchPrices(retries - 1, delay * 2);
+        }
+        errorMessage = "API Quota Exceeded. This usually happens on the Free Tier. If you just updated your key in Render, please ensure you triggered a NEW DEPLOY (not just a restart) so the new key is baked into the app.";
       }
       
       setError(errorMessage);
