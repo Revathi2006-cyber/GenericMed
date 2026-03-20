@@ -90,7 +90,6 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
           ],
         },
         config: {
-          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,
@@ -239,7 +238,6 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
           ],
         },
         config: {
-          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,

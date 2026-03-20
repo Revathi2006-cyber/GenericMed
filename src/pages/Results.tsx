@@ -42,6 +42,206 @@ function PharmacyLogo({ url, name, domain }: { url?: string, name: string, domai
   );
 }
 
+function RealTimePrices({ medicineName }: { medicineName: string }) {
+  const [prices, setPrices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load from cache on mount
+  useEffect(() => {
+    const cached = localStorage.getItem(`prices_${medicineName}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Only use cache if it's less than 24 hours old
+        if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          setPrices(parsed.data);
+          setHasStarted(true);
+        }
+      } catch (e) {
+        console.error("Failed to parse cached prices", e);
+      }
+    }
+  }, [medicineName]);
+
+  const handleFetchPrices = async (retries = 3, delay = 1000) => {
+    setLoading(true);
+    setHasStarted(true);
+    setError(null);
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || "";
+      if (!apiKey) {
+        throw new Error("API key is missing. Please ensure GEMINI_API_KEY is set in your environment.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Find online pharmacy prices and purchase links for ${medicineName} in India. For each pharmacy, provide:
+1. The pharmacy name (e.g., Apollo, Netmeds, 1mg, Pharmeasy).
+2. The current price in INR.
+3. The direct purchase link.
+4. The official website domain.
+5. A direct logo URL.
+
+Return the data as a JSON array.`,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                pharmacy: { type: Type.STRING },
+                price: { type: Type.STRING },
+                link: { type: Type.STRING },
+                logoUrl: { type: Type.STRING },
+                domain: { type: Type.STRING }
+              },
+              required: ["pharmacy", "price", "link", "domain"]
+            }
+          }
+        },
+      });
+      
+      const data = JSON.parse(response.text || "[]");
+      
+      // Save to cache
+      localStorage.setItem(`prices_${medicineName}`, JSON.stringify({
+        timestamp: Date.now(),
+        data
+      }));
+
+      setPrices(data);
+      setLoading(false);
+    } catch (err: any) {
+      console.error("Error fetching prices:", err);
+      
+      let errorMessage = err.message || String(err);
+      
+      if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
+        try {
+          const parsedError = JSON.parse(errorMessage);
+          if (parsedError.error && parsedError.error.message) {
+            errorMessage = parsedError.error.message;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const isQuotaExceeded = errorMessage.toLowerCase().includes('quota') || 
+                             errorMessage.toLowerCase().includes('limit') ||
+                             errorMessage.includes('429');
+      
+      if (isQuotaExceeded) {
+        if (errorMessage.includes('429') && retries > 0) {
+          console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return handleFetchPrices(retries - 1, delay * 2);
+        }
+        
+        // If quota is hit, provide a helpful fallback instead of just an error
+        const fallbackData = [
+          {
+            pharmacy: "1mg",
+            price: "Check Website",
+            link: `https://www.1mg.com/search/all?name=${encodeURIComponent(medicineName)}`,
+            domain: "1mg.com",
+            isFallback: true
+          },
+          {
+            pharmacy: "Netmeds",
+            price: "Check Website",
+            link: `https://www.netmeds.com/catalogsearch/result?q=${encodeURIComponent(medicineName)}`,
+            domain: "netmeds.com",
+            isFallback: true
+          },
+          {
+            pharmacy: "Apollo Pharmacy",
+            price: "Check Website",
+            link: `https://www.apollopharmacy.in/search-medicines/${encodeURIComponent(medicineName)}`,
+            domain: "apollopharmacy.in",
+            isFallback: true
+          }
+        ];
+        
+        setPrices(fallbackData);
+        setError("API Quota reached. This happens on the Free Tier. If you just updated your key, please ensure you triggered a 'Clear Build Cache & Deploy' on Render.");
+        setLoading(false);
+        return;
+      }
+      
+      setError(`Error: ${errorMessage}. If you just updated your key, please ensure you triggered a 'Clear Build Cache & Deploy' on Render.`);
+      setLoading(false);
+    }
+  };
+
+  if (!hasStarted) {
+    return (
+      <button 
+        onClick={() => handleFetchPrices()}
+        className="mt-4 w-full py-3 px-4 rounded-xl border border-[#00A3FF]/30 bg-[#00A3FF]/5 text-[#00A3FF] font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#00A3FF]/10 transition-colors"
+      >
+        <ShoppingCart className="w-4 h-4" />
+        Find Online Prices
+      </button>
+    );
+  }
+
+  if (loading) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] flex items-center gap-2 mt-4 p-4 bg-slate-50 dark:bg-[#0B1120] rounded-xl border border-slate-200 dark:border-[#1E293B]"><Loader2 className="w-4 h-4 animate-spin"/> Searching live pharmacy prices...</div>;
+  
+  if (error && prices.length === 0) return (
+    <div className="mt-4 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-3">
+      <div className="text-sm text-rose-500 flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4" />
+        Prices unavailable: {error}
+      </div>
+      <button 
+        onClick={() => handleFetchPrices()}
+        className="text-xs font-bold text-rose-500 underline hover:no-underline"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+
+  if (prices.length === 0) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] mt-4 p-4 bg-slate-50 dark:bg-[#0B1120] rounded-xl border border-slate-200 dark:border-[#1E293B]">No online availability found for this medicine.</div>;
+
+  return (
+    <div className="mt-4 space-y-3 pt-4 border-t border-slate-200 dark:border-[#1E293B]">
+      <div className="flex items-center justify-between">
+        <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white">
+          <ShoppingCart className="w-4 h-4"/> Online Prices
+        </h5>
+        {error && (
+          <span className="text-[10px] text-amber-500 font-medium flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" /> Quota reached (using search links)
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {prices.map((p, i) => (
+          <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors border border-slate-200 dark:border-[#1E293B]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white p-1 shadow-sm border border-slate-100 dark:border-white/5">
+                <PharmacyLogo url={p.logoUrl} domain={p.domain} name={p.pharmacy} />
+              </div>
+              <span className="text-sm font-medium text-slate-900 dark:text-white">{p.pharmacy}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-emerald-400">{p.price}</span>
+              <ExternalLink className="w-4 h-4 text-slate-500 dark:text-[#94A3B8]" />
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CopyGenericName({ name }: { name: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -737,47 +937,32 @@ export function Results() {
               )}
 
               {item.onlinePrices && item.onlinePrices.length > 0 && (
-                <div className="mt-6 space-y-4 pt-6 border-t border-slate-200 dark:border-[#1E293B]">
+                <div className="mt-4 space-y-3 pt-4 border-t border-slate-200 dark:border-[#1E293B]">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                      <ShoppingCart className="w-5 h-5 text-[#00A3FF]"/> Online Prices & Availability
+                    <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white">
+                      <ShoppingCart className="w-4 h-4"/> Online Availability
                     </h5>
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      Live
-                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {item.onlinePrices.map((p, i) => (
-                      <a 
-                        key={i} 
-                        href={p.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-[#0B1120] hover:bg-slate-50 dark:hover:bg-[#1E293B] transition-all border border-slate-200 dark:border-[#1E293B] group shadow-sm hover:shadow-md"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-[#111C33] p-2 shadow-inner border border-slate-100 dark:border-white/5 group-hover:bg-white dark:group-hover:bg-[#1E293B] transition-colors">
+                      <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors border border-slate-200 dark:border-[#1E293B]">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white p-1 shadow-sm border border-slate-100 dark:border-white/5">
                             <PharmacyLogo url={p.logoUrl} domain={p.domain} name={p.pharmacy} />
                           </div>
-                          <div>
-                            <span className="text-sm font-bold text-slate-900 dark:text-white block">{p.pharmacy}</span>
-                            <span className="text-[10px] text-slate-500 dark:text-[#94A3B8] uppercase tracking-tighter">Verified Pharmacy</span>
-                          </div>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">{p.pharmacy}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <span className="text-lg font-black text-emerald-500 block">₹{p.price}</span>
-                            <span className="text-[10px] text-slate-400 dark:text-[#64748B]">Best Price</span>
-                          </div>
-                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-[#1E293B] flex items-center justify-center group-hover:bg-[#00A3FF] group-hover:text-white transition-all">
-                            <ExternalLink className="w-4 h-4" />
-                          </div>
+                          <span className="text-sm font-bold text-emerald-500">₹{p.price}</span>
+                          <ExternalLink className="w-4 h-4 text-slate-500 dark:text-[#94A3B8]" />
                         </div>
                       </a>
                     ))}
                   </div>
                 </div>
               )}
+
+              <RealTimePrices medicineName={item.genericName} />
             </div>
         ))}
       </div>
