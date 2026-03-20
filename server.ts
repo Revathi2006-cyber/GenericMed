@@ -33,6 +33,14 @@ async function startServer() {
     } else {
       console.error(`[Startup] dist/index.html MISSING!`);
     }
+
+    const assetsPath = path.join(distPath, 'assets');
+    if (fs.existsSync(assetsPath)) {
+      const assets = fs.readdirSync(assetsPath);
+      console.log(`[Startup] dist/assets contents: ${assets.join(', ')}`);
+    } else {
+      console.warn(`[Startup] dist/assets directory MISSING!`);
+    }
   } else {
     console.error(`[Startup] dist directory MISSING!`);
   }
@@ -122,6 +130,9 @@ async function startServer() {
       }
 
       console.log(`[Production] Sending index.html for: ${req.url}`);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
