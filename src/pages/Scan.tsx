@@ -84,7 +84,7 @@ export function Scan() {
       setShowOverlay(true);
     } catch (err: any) {
       console.error("Analysis failed:", err);
-      setError("Failed to analyze prescription. Please ensure the photo is clear and try again.");
+      setError(err.message || "Failed to analyze prescription. Please ensure the photo is clear and try again.");
     } finally {
       setIsLoading(false);
     }

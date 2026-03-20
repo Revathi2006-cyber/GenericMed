@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, Type, Check, Loader2, Activity, ArrowRight, Bell, Volume2, Clock } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { handleFirestoreError, OperationType } from '../lib/firebaseError';
 import { useSettings, SOUND_OPTIONS, playNotificationSound } from '../contexts/SettingsContext';
 
 export function Onboarding() {
@@ -32,7 +33,8 @@ export function Onboarding() {
 
     setIsSaving(true);
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      const path = `users/${user.uid}`;
+      await updateDoc(doc(db, path), {
         hasCompletedOnboarding: true,
         theme,
         fontSize,
@@ -42,6 +44,7 @@ export function Onboarding() {
       navigate('/', { replace: true });
     } catch (error) {
       console.error("Error saving onboarding preferences:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`, auth);
       navigate('/', { replace: true });
     } finally {
       setIsSaving(false);

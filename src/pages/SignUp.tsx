@@ -40,7 +40,15 @@ export function SignUp() {
       navigate('/');
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Failed to sign up');
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please sign in instead.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Invalid email address format.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password should be at least 6 characters.');
+      } else {
+        setError(err.message || 'Failed to sign up');
+      }
     } finally {
       setIsLoading(false);
     }

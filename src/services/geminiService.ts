@@ -1,6 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+function checkApiKey() {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("Gemini API key is missing. Please set GEMINI_API_KEY in your environment variables.");
+  }
+}
 
 export interface MedicineResult {
   brandedName: string;
@@ -23,12 +29,13 @@ export interface MedicineResult {
 
 export async function analyzePrescription(base64Image: string): Promise<MedicineResult[]> {
   try {
+    checkApiKey();
     const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9.+]+);base64,/);
     const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
     const base64Data = base64Image.split(',')[1];
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
@@ -38,7 +45,7 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
             },
           },
           {
-            text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects.",
+            text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects. If no medicines are found, return an empty array [].",
           },
         ],
       },
@@ -112,20 +119,37 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
       },
     });
 
-    const jsonStr = response.text?.trim();
+    let jsonStr = response.text?.trim() || "";
+    
+    // Clean up markdown if present
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    }
+
     if (!jsonStr) return [];
     
-    return JSON.parse(jsonStr) as MedicineResult[];
-  } catch (error) {
+    try {
+      return JSON.parse(jsonStr) as MedicineResult[];
+    } catch (parseError) {
+      console.error("JSON Parse Error:", parseError, "Raw string:", jsonStr);
+      throw new Error("Failed to parse analysis results. Please try again.");
+    }
+  } catch (error: any) {
     console.error("Error analyzing prescription:", error);
-    throw new Error("Failed to analyze prescription. Please try again.");
+    if (error.message?.includes("API key")) {
+      throw new Error("Invalid API key. Please check your settings.");
+    }
+    throw new Error("Failed to analyze prescription. Please ensure the photo is clear and try again.");
   }
 }
 
 export async function searchMedicine(query: string): Promise<MedicineResult[]> {
   try {
+    checkApiKey();
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
@@ -198,12 +222,28 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
       },
     });
 
-    const jsonStr = response.text?.trim();
+    let jsonStr = response.text?.trim() || "";
+    
+    // Clean up markdown if present
+    if (jsonStr.startsWith("```json")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    }
+
     if (!jsonStr) return [];
     
-    return JSON.parse(jsonStr) as MedicineResult[];
-  } catch (error) {
+    try {
+      return JSON.parse(jsonStr) as MedicineResult[];
+    } catch (parseError) {
+      console.error("JSON Parse Error:", parseError, "Raw string:", jsonStr);
+      throw new Error("Failed to parse search results. Please try again.");
+    }
+  } catch (error: any) {
     console.error("Error searching medicine:", error);
+    if (error.message?.includes("API key")) {
+      throw new Error("Invalid API key. Please check your settings.");
+    }
     throw new Error("Failed to search medicine. Please try again.");
   }
 }

@@ -14,6 +14,13 @@ service cloud.firestore {
     //   - photoURL: string (optional) - User profile picture URL
     //   - createdAt: string (required, immutable) - Creation timestamp
     //   - lastLoginAt: string (optional) - Last login timestamp
+    //   - hasCompletedOnboarding: boolean (optional) - Onboarding status
+    //   - theme: string (optional) - User's preferred theme
+    //   - fontSize: string (optional) - User's preferred font size
+    //   - notificationSound: string (optional) - User's preferred notification sound
+    //   - reminderTiming: int (optional) - User's preferred reminder timing in minutes
+    //   - reminderRepeat: int (optional) - Number of times to repeat the reminder
+    //   - updatedAt: string (optional) - Last update timestamp
     //
     // Collection: history
     // Document ID: {historyId}
@@ -60,7 +67,7 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'lastLoginAt', 'hasCompletedOnboarding', 'theme', 'fontSize']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'lastLoginAt', 'hasCompletedOnboarding', 'theme', 'fontSize', 'notificationSound', 'reminderTiming', 'reminderRepeat', 'updatedAt']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
              (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() < 100)) &&
@@ -69,7 +76,11 @@ service cloud.firestore {
              (!('lastLoginAt' in data) || data.lastLoginAt == null || (data.lastLoginAt is string && data.lastLoginAt.size() < 50)) &&
              (!('hasCompletedOnboarding' in data) || data.hasCompletedOnboarding is bool) &&
              (!('theme' in data) || data.theme in ['light', 'dark']) &&
-             (!('fontSize' in data) || data.fontSize in ['normal', 'large', 'extra-large']);
+             (!('fontSize' in data) || data.fontSize in ['normal', 'large', 'extra-large']) &&
+             (!('notificationSound' in data) || data.notificationSound is string) &&
+             (!('reminderTiming' in data) || data.reminderTiming is int) &&
+             (!('reminderRepeat' in data) || data.reminderRepeat is int) &&
+             (!('updatedAt' in data) || data.updatedAt is string);
     }
 
     function isValidHistoryItem(data) {

@@ -3,7 +3,8 @@ import { Moon, Sun, Type, HelpCircle, Bell, Volume2, Clock, Repeat, Save, Loader
 import { useSettings, SOUND_OPTIONS, playNotificationSound } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { handleFirestoreError, OperationType } from '../lib/firebaseError';
 import { cn } from '../lib/utils';
 
 export function Settings() {
@@ -40,7 +41,8 @@ export function Settings() {
     setSaveStatus('idle');
     
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      const path = `users/${user.uid}`;
+      await updateDoc(doc(db, path), {
         theme,
         fontSize,
         notificationSound,
@@ -52,6 +54,7 @@ export function Settings() {
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`, auth);
       setSaveStatus('error');
     } finally {
       setIsSaving(false);

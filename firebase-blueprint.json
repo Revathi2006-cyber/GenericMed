@@ -10,7 +10,11 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
         "hasCompletedOnboarding": { "type": "boolean", "description": "Whether the user has completed the onboarding process" },
         "theme": { "type": "string", "enum": ["light", "dark"], "description": "User's preferred theme" },
-        "fontSize": { "type": "string", "enum": ["normal", "large", "extra-large"], "description": "User's preferred font size" }
+        "fontSize": { "type": "string", "enum": ["normal", "large", "extra-large"], "description": "User's preferred font size" },
+        "notificationSound": { "type": "string", "description": "User's preferred notification sound" },
+        "reminderTiming": { "type": "integer", "description": "User's preferred reminder timing in minutes" },
+        "reminderRepeat": { "type": "integer", "description": "Number of times to repeat the reminder" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
       },
       "required": ["uid", "email", "createdAt"]
     },
