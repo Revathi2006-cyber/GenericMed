@@ -13,37 +13,7 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Startup diagnostics
-  console.log(`[Startup] NODE_ENV: ${process.env.NODE_ENV}`);
-  console.log(`[Startup] Current working directory: ${process.cwd()}`);
-  console.log(`[Startup] __dirname: ${__dirname}`);
-
   const distPath = path.resolve(process.cwd(), 'dist');
-  console.log(`[Startup] Expected dist path: ${distPath}`);
-
-  if (fs.existsSync(distPath)) {
-    console.log(`[Startup] dist directory exists.`);
-    const files = fs.readdirSync(distPath);
-    console.log(`[Startup] dist contents: ${files.join(', ')}`);
-    
-    if (fs.existsSync(path.join(distPath, 'index.html'))) {
-      console.log(`[Startup] dist/index.html exists.`);
-      const stats = fs.statSync(path.join(distPath, 'index.html'));
-      console.log(`[Startup] dist/index.html size: ${stats.size} bytes`);
-    } else {
-      console.error(`[Startup] dist/index.html MISSING!`);
-    }
-
-    const assetsPath = path.join(distPath, 'assets');
-    if (fs.existsSync(assetsPath)) {
-      const assets = fs.readdirSync(assetsPath);
-      console.log(`[Startup] dist/assets contents: ${assets.join(', ')}`);
-    } else {
-      console.warn(`[Startup] dist/assets directory MISSING!`);
-    }
-  } else {
-    console.error(`[Startup] dist directory MISSING!`);
-  }
 
   // API routes FIRST
   app.get("/api/health", (req, res) => {
@@ -113,6 +83,15 @@ async function startServer() {
     // Production: Serve static files from dist
     console.log(`[Production] Serving static files from: ${distPath}`);
     app.use(express.static(distPath, { index: false }));
+    
+    // Serve sw.js with no-cache to ensure self-destruct is picked up
+    app.get('/sw.js', (req, res) => {
+      console.log(`[Production] Serving sw.js with no-cache`);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.sendFile(path.join(distPath, 'sw.js'));
+    });
     
     app.get('*', (req, res, next) => {
       // If it's an API request, let it pass through

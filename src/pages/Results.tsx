@@ -42,16 +42,19 @@ function PharmacyLogo({ url, name, domain }: { url?: string, name: string, domai
 
 function RealTimePrices({ medicineName }: { medicineName: string }) {
   const [prices, setPrices] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchPrices(retries = 3, delay = 1000) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Find online pharmacy prices and purchase links for ${medicineName}. For each pharmacy, provide:
+  const handleFetchPrices = async (retries = 3, delay = 1000) => {
+    setLoading(true);
+    setHasStarted(true);
+    setError(null);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Find online pharmacy prices and purchase links for ${medicineName}. For each pharmacy, provide:
 1. The pharmacy name.
 2. The price.
 3. The purchase link.
@@ -59,71 +62,94 @@ function RealTimePrices({ medicineName }: { medicineName: string }) {
 5. A direct, high-quality, publicly accessible URL to their official logo.
 
 If you cannot find a direct logo URL, you MUST provide the official website domain.`,
-          config: {
-            tools: [{ googleSearch: {} }],
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  pharmacy: { type: Type.STRING },
-                  price: { type: Type.STRING },
-                  link: { type: Type.STRING },
-                  logoUrl: { type: Type.STRING },
-                  domain: { type: Type.STRING }
-                },
-                required: ["pharmacy", "price", "link", "domain"]
-              }
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                pharmacy: { type: Type.STRING },
+                price: { type: Type.STRING },
+                link: { type: Type.STRING },
+                logoUrl: { type: Type.STRING },
+                domain: { type: Type.STRING }
+              },
+              required: ["pharmacy", "price", "link", "domain"]
             }
-          },
-        });
-        
-        const data = JSON.parse(response.text || "[]");
-        console.log("Pharmacy data:", data);
-        setPrices(data);
-        setLoading(false);
-      } catch (err: any) {
-        console.error("Error fetching prices:", err);
-        
-        // Try to extract message from the error object
-        let errorMessage = err.message || String(err);
-        
-        // If it's a JSON string, try to parse it
-        if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
-          try {
-            const parsedError = JSON.parse(errorMessage);
-            if (parsedError.error && parsedError.error.message) {
-              errorMessage = parsedError.error.message;
-            }
-          } catch (e) {
-            console.error("Failed to parse error JSON:", e);
           }
+        },
+      });
+      
+      const data = JSON.parse(response.text || "[]");
+      console.log("Pharmacy data:", data);
+      setPrices(data);
+      setLoading(false);
+    } catch (err: any) {
+      console.error("Error fetching prices:", err);
+      
+      let errorMessage = err.message || String(err);
+      
+      if (typeof errorMessage === 'string' && errorMessage.startsWith('{')) {
+        try {
+          const parsedError = JSON.parse(errorMessage);
+          if (parsedError.error && parsedError.error.message) {
+            errorMessage = parsedError.error.message;
+          }
+        } catch (e) {
+          console.error("Failed to parse error JSON:", e);
         }
-
-        const isQuotaExceeded = errorMessage.includes('exceeded your current quota');
-        const isRateLimit = errorMessage.includes('429') || err.status === 429;
-
-        if (isRateLimit && !isQuotaExceeded && retries > 0) {
-          console.warn(`Rate limit hit, retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          return fetchPrices(retries - 1, delay * 2);
-        }
-        
-        if (isQuotaExceeded) {
-          errorMessage = "You have exceeded your Gemini API quota. Please check your billing details or use a project with higher quota.";
-        }
-        
-        setError(errorMessage);
-        setLoading(false);
       }
-    }
-    fetchPrices();
-  }, [medicineName]);
 
-  if (loading) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] flex items-center gap-2 mt-4"><Loader2 className="w-4 h-4 animate-spin"/> Searching live pharmacy prices...</div>;
-  if (error) return <div className="text-sm text-rose-500 bg-rose-500/10 p-3 rounded-lg mt-4">Prices unavailable: {error}</div>;
-  if (prices.length === 0) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] mt-4">No online availability found.</div>;
+      const isQuotaExceeded = errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('limit');
+      const isRateLimit = errorMessage.includes('429') || err.status === 429;
+
+      if (isRateLimit && !isQuotaExceeded && retries > 0) {
+        console.warn(`Rate limit hit, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return handleFetchPrices(retries - 1, delay * 2);
+      }
+      
+      if (isQuotaExceeded) {
+        errorMessage = "Daily API quota reached. Please try again later or upgrade your Gemini API plan.";
+      }
+      
+      setError(errorMessage);
+      setLoading(false);
+    }
+  };
+
+  if (!hasStarted) {
+    return (
+      <button 
+        onClick={() => handleFetchPrices()}
+        className="mt-4 w-full py-3 px-4 rounded-xl border border-[#00A3FF]/30 bg-[#00A3FF]/5 text-[#00A3FF] font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#00A3FF]/10 transition-colors"
+      >
+        <ShoppingCart className="w-4 h-4" />
+        Find Online Prices
+      </button>
+    );
+  }
+
+  if (loading) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] flex items-center gap-2 mt-4 p-4 bg-slate-50 dark:bg-[#0B1120] rounded-xl border border-slate-200 dark:border-[#1E293B]"><Loader2 className="w-4 h-4 animate-spin"/> Searching live pharmacy prices...</div>;
+  
+  if (error) return (
+    <div className="mt-4 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-3">
+      <div className="text-sm text-rose-500 flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4" />
+        Prices unavailable: {error}
+      </div>
+      <button 
+        onClick={() => handleFetchPrices()}
+        className="text-xs font-bold text-rose-500 underline hover:no-underline"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+
+  if (prices.length === 0) return <div className="text-sm text-slate-500 dark:text-[#94A3B8] mt-4 p-4 bg-slate-50 dark:bg-[#0B1120] rounded-xl border border-slate-200 dark:border-[#1E293B]">No online availability found for this medicine.</div>;
 
   return (
     <div className="mt-4 space-y-3 pt-4 border-t border-slate-200 dark:border-[#1E293B]">
