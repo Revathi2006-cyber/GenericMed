@@ -1,11 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
-function checkApiKey() {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Gemini API key is missing. Please set GEMINI_API_KEY in your environment variables.");
+function getAi() {
+  const apiKey = process.env.GEMINI_API_KEY || "";
+  if (!apiKey) {
+    throw new Error("Gemini API key is missing. Please set GEMINI_API_KEY in your Render environment variables and trigger a NEW DEPLOY (Clear Build Cache & Deploy).");
   }
+  return new GoogleGenAI({ apiKey });
 }
 
 export interface MedicineResult {
@@ -59,7 +59,7 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
   }
 
   try {
-    checkApiKey();
+    const ai = getAi();
     const mimeTypeMatch = base64Image.match(/^data:(image\/[a-zA-Z0-9.+]+);base64,/);
     const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
     const base64Data = base64Image.split(',')[1];
@@ -202,7 +202,7 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
   }
 
   try {
-    checkApiKey();
+    const ai = getAi();
     const result = await fetchWithRetry(async () => {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",

@@ -18,6 +18,8 @@ import {
 } from 'recharts';
 import { GoogleGenAI, Type } from "@google/genai";
 
+const APP_VERSION = "v2.2.1";
+
 function PharmacyLogo({ url, name, domain }: { url?: string, name: string, domain?: string }) {
   const [index, setIndex] = useState(0);
   
@@ -167,12 +169,12 @@ Return the data as a JSON array.`,
         ];
         
         setPrices(fallbackData);
-        setError("API Quota reached. Showing direct search links to pharmacies instead.");
+        setError("API Quota reached. This happens on the Free Tier. If you just updated your key, please ensure you triggered a 'Clear Build Cache & Deploy' on Render.");
         setLoading(false);
         return;
       }
       
-      setError(errorMessage);
+      setError(`Error: ${errorMessage}. If you just updated your key, please ensure you triggered a 'Clear Build Cache & Deploy' on Render.`);
       setLoading(false);
     }
   };
@@ -1185,6 +1187,14 @@ export function Results() {
           </div>
         </div>
       )} */}
+      
+      {/* Footer */}
+      <div className="mt-12 pt-8 border-t border-slate-200 dark:border-[#1E293B] text-center pb-12">
+        <div className="flex items-center justify-center gap-2 text-slate-400 dark:text-[#94A3B8] text-xs">
+          <Activity className="w-3 h-3" />
+          <span>Powered by Gemini AI • {APP_VERSION}</span>
+        </div>
+      </div>
     </div>
   );
 }
