@@ -8,14 +8,6 @@ function getAi() {
   return new GoogleGenAI({ apiKey });
 }
 
-export interface OnlinePrice {
-  pharmacy: string;
-  price: number;
-  link: string;
-  domain?: string;
-  logoUrl?: string;
-}
-
 export interface MedicineResult {
   brandedName: string;
   genericName: string;
@@ -25,15 +17,16 @@ export interface MedicineResult {
   savings: number;
   sideEffects: string[];
   interactions: string[];
-  usageInstructions?: string;
-  precautions?: string[];
-  whenToConsultDoctor?: string[];
+  usageInstructions: string;
+  precautions: string[];
+  consultDoctor: string[];
+  complementaryCare: string[];
+  onlinePrices: {
+    platform: string;
+    price: number;
+    link: string;
+  }[];
   boundingBox?: [number, number, number, number]; // [ymin, xmin, ymax, xmax] normalized 0-1000
-  complementaryCare?: {
-    homeRemedies: string[];
-    ayurvedaSuggestions: { herb: string; benefit: string }[];
-  };
-  onlinePrices?: OnlinePrice[];
 }
 
 async function fetchWithRetry(fn: () => Promise<any>, retries = 3, delay = 1000): Promise<any> {
@@ -85,11 +78,12 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
               },
             },
             {
-              text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Additionally, find current online prices and direct purchase links for the generic version from major Indian pharmacies like Apollo Pharmacy, Tata 1mg, Netmeds, and PharmEasy. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects. If no medicines are found, return an empty array [].",
+              text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, usage instructions, key precautions, when to consult a doctor, and complementary care tips. Additionally, provide estimated online prices from platforms like Tata 1mg, Apollo Pharmacy, and PharmEasy. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects. If no medicines are found, return an empty array [].",
             },
           ],
         },
         config: {
+          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,
@@ -112,63 +106,42 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
                   items: { type: Type.STRING },
                   description: "List of potential drug or food interactions"
                 },
-                usageInstructions: { type: Type.STRING, description: "Detailed instructions on how to take the medicine" },
+                usageInstructions: { type: Type.STRING, description: "Detailed usage instructions" },
                 precautions: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
-                  description: "Key precautions to take while on this medication"
+                  description: "Key precautions to take"
                 },
-                whenToConsultDoctor: {
+                consultDoctor: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
-                  description: "Red flags or symptoms that require immediate medical attention"
-                },
-                boundingBox: {
-                  type: Type.ARRAY,
-                  items: { type: Type.INTEGER },
-                  description: "Bounding box of the medicine name [ymin, xmin, ymax, xmax] normalized 0-1000"
+                  description: "When to consult a doctor"
                 },
                 complementaryCare: {
-                  type: Type.OBJECT,
-                  description: "Supportive lifestyle and complementary care suggestions",
-                  properties: {
-                    homeRemedies: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                      description: "List of home remedies or lifestyle changes"
-                    },
-                    ayurvedaSuggestions: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          herb: { type: Type.STRING },
-                          benefit: { type: Type.STRING }
-                        },
-                        required: ["herb", "benefit"]
-                      },
-                      description: "List of light ayurvedic suggestions"
-                    }
-                  },
-                  required: ["homeRemedies", "ayurvedaSuggestions"]
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: "Complementary care tips"
                 },
                 onlinePrices: {
                   type: Type.ARRAY,
                   items: {
                     type: Type.OBJECT,
                     properties: {
-                      pharmacy: { type: Type.STRING, description: "Name of the pharmacy (e.g., Tata 1mg)" },
-                      price: { type: Type.NUMBER, description: "Price in INR" },
-                      link: { type: Type.STRING, description: "Direct URL to the medicine on the pharmacy website" },
-                      domain: { type: Type.STRING, description: "Official website domain (e.g., 1mg.com)" },
-                      logoUrl: { type: Type.STRING, description: "Direct URL to the pharmacy logo" }
+                      platform: { type: Type.STRING },
+                      price: { type: Type.NUMBER },
+                      link: { type: Type.STRING }
                     },
-                    required: ["pharmacy", "price", "link", "domain"]
+                    required: ["platform", "price", "link"]
                   },
-                  description: "List of online prices from different pharmacies"
+                  description: "Estimated online prices"
+                },
+                boundingBox: {
+                  type: Type.ARRAY,
+                  items: { type: Type.INTEGER },
+                  description: "Bounding box of the medicine name [ymin, xmin, ymax, xmax] normalized 0-1000"
                 }
               },
-              required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions", "usageInstructions", "precautions", "whenToConsultDoctor"],
+              required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions", "usageInstructions", "precautions", "consultDoctor", "complementaryCare", "onlinePrices"],
             },
           },
         },
@@ -233,11 +206,12 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
         contents: {
           parts: [
             {
-              text: `Find the generic equivalent for the medicine: "${query}". Provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Additionally, find current online prices and direct purchase links for the generic version from major Indian pharmacies like Apollo Pharmacy, Tata 1mg, Netmeds, and PharmEasy. Return the data as a JSON array of objects.`,
+              text: `Find the generic equivalent for the medicine: "${query}". Provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, usage instructions, key precautions, when to consult a doctor, and complementary care tips. Additionally, provide estimated online prices from platforms like Tata 1mg, Apollo Pharmacy, and PharmEasy. Return the data as a JSON array of objects.`,
             },
           ],
         },
         config: {
+          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,
@@ -260,58 +234,37 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
                   items: { type: Type.STRING },
                   description: "List of potential drug or food interactions"
                 },
-                usageInstructions: { type: Type.STRING, description: "Detailed instructions on how to take the medicine" },
+                usageInstructions: { type: Type.STRING, description: "Detailed usage instructions" },
                 precautions: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
-                  description: "Key precautions to take while on this medication"
+                  description: "Key precautions to take"
                 },
-                whenToConsultDoctor: {
+                consultDoctor: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
-                  description: "Red flags or symptoms that require immediate medical attention"
+                  description: "When to consult a doctor"
                 },
                 complementaryCare: {
-                  type: Type.OBJECT,
-                  description: "Supportive lifestyle and complementary care suggestions",
-                  properties: {
-                    homeRemedies: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                      description: "List of home remedies or lifestyle changes"
-                    },
-                    ayurvedaSuggestions: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          herb: { type: Type.STRING },
-                          benefit: { type: Type.STRING }
-                        },
-                        required: ["herb", "benefit"]
-                      },
-                      description: "List of light ayurvedic suggestions"
-                    }
-                  },
-                  required: ["homeRemedies", "ayurvedaSuggestions"]
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: "Complementary care tips"
                 },
                 onlinePrices: {
                   type: Type.ARRAY,
                   items: {
                     type: Type.OBJECT,
                     properties: {
-                      pharmacy: { type: Type.STRING, description: "Name of the pharmacy (e.g., Tata 1mg)" },
-                      price: { type: Type.NUMBER, description: "Price in INR" },
-                      link: { type: Type.STRING, description: "Direct URL to the medicine on the pharmacy website" },
-                      domain: { type: Type.STRING, description: "Official website domain (e.g., 1mg.com)" },
-                      logoUrl: { type: Type.STRING, description: "Direct URL to the pharmacy logo" }
+                      platform: { type: Type.STRING },
+                      price: { type: Type.NUMBER },
+                      link: { type: Type.STRING }
                     },
-                    required: ["pharmacy", "price", "link", "domain"]
+                    required: ["platform", "price", "link"]
                   },
-                  description: "List of online prices from different pharmacies"
+                  description: "Estimated online prices"
                 }
               },
-              required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions", "usageInstructions", "precautions", "whenToConsultDoctor"],
+              required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions", "usageInstructions", "precautions", "consultDoctor", "complementaryCare", "onlinePrices"],
             },
           },
         },
