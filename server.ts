@@ -1,12 +1,41 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import fs from "fs";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
+
+  // Startup diagnostics
+  console.log(`[Startup] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[Startup] Current working directory: ${process.cwd()}`);
+  console.log(`[Startup] __dirname: ${__dirname}`);
+
+  const distPath = path.resolve(process.cwd(), 'dist');
+  console.log(`[Startup] Expected dist path: ${distPath}`);
+
+  if (fs.existsSync(distPath)) {
+    console.log(`[Startup] dist directory exists.`);
+    const files = fs.readdirSync(distPath);
+    console.log(`[Startup] dist contents: ${files.join(', ')}`);
+    
+    if (fs.existsSync(path.join(distPath, 'index.html'))) {
+      console.log(`[Startup] dist/index.html exists.`);
+      const stats = fs.statSync(path.join(distPath, 'index.html'));
+      console.log(`[Startup] dist/index.html size: ${stats.size} bytes`);
+    } else {
+      console.error(`[Startup] dist/index.html MISSING!`);
+    }
+  } else {
+    console.error(`[Startup] dist directory MISSING!`);
+  }
 
   // API routes FIRST
   app.get("/api/health", (req, res) => {
@@ -74,14 +103,25 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // Production: Serve static files from dist
-    const distPath = path.resolve(process.cwd(), 'dist');
+    console.log(`[Production] Serving static files from: ${distPath}`);
     app.use(express.static(distPath, { index: false }));
     
     app.get('*', (req, res, next) => {
-      // If it's an API request, let it pass through (though API routes are defined above)
+      // If it's an API request, let it pass through
       if (req.path.startsWith('/api')) {
         return next();
       }
+      
+      // If it's a request for a file that doesn't exist (e.g. .js, .css), 
+      // don't send index.html as it will cause syntax errors in the browser.
+      // Instead, send a 404.
+      const ext = path.extname(req.path);
+      if (ext && ext !== '.html') {
+        console.warn(`[Production] 404 for file: ${req.path}`);
+        return res.status(404).send('Not found');
+      }
+
+      console.log(`[Production] Sending index.html for: ${req.url}`);
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
