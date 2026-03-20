@@ -8,6 +8,14 @@ function getAi() {
   return new GoogleGenAI({ apiKey });
 }
 
+export interface OnlinePrice {
+  pharmacy: string;
+  price: number;
+  link: string;
+  domain?: string;
+  logoUrl?: string;
+}
+
 export interface MedicineResult {
   brandedName: string;
   genericName: string;
@@ -25,6 +33,7 @@ export interface MedicineResult {
     homeRemedies: string[];
     ayurvedaSuggestions: { herb: string; benefit: string }[];
   };
+  onlinePrices?: OnlinePrice[];
 }
 
 async function fetchWithRetry(fn: () => Promise<any>, retries = 3, delay = 1000): Promise<any> {
@@ -76,7 +85,7 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
               },
             },
             {
-              text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects. If no medicines are found, return an empty array [].",
+              text: "Analyze this prescription. Extract the branded medicine names. For each branded medicine, provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Additionally, find current online prices and direct purchase links for the generic version from major Indian pharmacies like Apollo Pharmacy, Tata 1mg, Netmeds, and PharmEasy. Return the bounding box of the medicine name on the prescription image in the format [ymin, xmin, ymax, xmax] where values are normalized from 0 to 1000. Return the data as a JSON array of objects. If no medicines are found, return an empty array [].",
             },
           ],
         },
@@ -142,6 +151,21 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
                     }
                   },
                   required: ["homeRemedies", "ayurvedaSuggestions"]
+                },
+                onlinePrices: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      pharmacy: { type: Type.STRING, description: "Name of the pharmacy (e.g., Tata 1mg)" },
+                      price: { type: Type.NUMBER, description: "Price in INR" },
+                      link: { type: Type.STRING, description: "Direct URL to the medicine on the pharmacy website" },
+                      domain: { type: Type.STRING, description: "Official website domain (e.g., 1mg.com)" },
+                      logoUrl: { type: Type.STRING, description: "Direct URL to the pharmacy logo" }
+                    },
+                    required: ["pharmacy", "price", "link", "domain"]
+                  },
+                  description: "List of online prices from different pharmacies"
                 }
               },
               required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions", "usageInstructions", "precautions", "whenToConsultDoctor"],
@@ -178,10 +202,10 @@ export async function analyzePrescription(base64Image: string): Promise<Medicine
   } catch (error: any) {
     console.error("Error analyzing prescription:", error);
     if (error.message?.includes("API key")) {
-      throw new Error("Invalid API key. Please check your settings.");
+      throw new Error("Invalid API key. Please check your settings. Ensure you have set GEMINI_API_KEY in Render environment variables.");
     }
-    if (error.message?.includes("quota") || error.message?.includes("429")) {
-      throw new Error("API Quota Exceeded. Please check your Render deployment settings and ensure you triggered a NEW DEPLOY after updating the key.");
+    if (error.message?.includes("quota") || error.message?.includes("429") || error.status === 429) {
+      throw new Error("API Quota Exceeded. The free tier of Gemini API has limits. \n\nTo fix this:\n1. Upgrade to a paid plan at ai.google.dev.\n2. If you just updated your key, you MUST go to Render -> Manual Deploy -> 'Clear Build Cache & Deploy' to pick up the changes.");
     }
     throw new Error("Failed to analyze prescription. Please ensure the photo is clear and try again.");
   }
@@ -209,7 +233,7 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
         contents: {
           parts: [
             {
-              text: `Find the generic equivalent for the medicine: "${query}". Provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Return the data as a JSON array of objects.`,
+              text: `Find the generic equivalent for the medicine: "${query}". Provide its generic equivalent, the salt composition, an estimated price in INR (₹) for the branded version, and an estimated price in INR (₹) for the generic version. Calculate the savings. Also provide common side effects, potential drug interactions, detailed usage instructions, key precautions, and specific red flags for when to consult a doctor. Provide complementary care suggestions (home remedies and light ayurvedic suggestions) based on the likely condition being treated. Additionally, find current online prices and direct purchase links for the generic version from major Indian pharmacies like Apollo Pharmacy, Tata 1mg, Netmeds, and PharmEasy. Return the data as a JSON array of objects.`,
             },
           ],
         },
@@ -270,6 +294,21 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
                     }
                   },
                   required: ["homeRemedies", "ayurvedaSuggestions"]
+                },
+                onlinePrices: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      pharmacy: { type: Type.STRING, description: "Name of the pharmacy (e.g., Tata 1mg)" },
+                      price: { type: Type.NUMBER, description: "Price in INR" },
+                      link: { type: Type.STRING, description: "Direct URL to the medicine on the pharmacy website" },
+                      domain: { type: Type.STRING, description: "Official website domain (e.g., 1mg.com)" },
+                      logoUrl: { type: Type.STRING, description: "Direct URL to the pharmacy logo" }
+                    },
+                    required: ["pharmacy", "price", "link", "domain"]
+                  },
+                  description: "List of online prices from different pharmacies"
                 }
               },
               required: ["brandedName", "genericName", "saltComposition", "brandedPrice", "genericPrice", "savings", "sideEffects", "interactions", "usageInstructions", "precautions", "whenToConsultDoctor"],
@@ -306,10 +345,10 @@ export async function searchMedicine(query: string): Promise<MedicineResult[]> {
   } catch (error: any) {
     console.error("Error searching medicine:", error);
     if (error.message?.includes("API key")) {
-      throw new Error("Invalid API key. Please check your settings.");
+      throw new Error("Invalid API key. Please check your settings. Ensure you have set GEMINI_API_KEY in Render environment variables.");
     }
-    if (error.message?.includes("quota") || error.message?.includes("429")) {
-      throw new Error("API Quota Exceeded. Please check your Render deployment settings and ensure you triggered a NEW DEPLOY after updating the key.");
+    if (error.message?.includes("quota") || error.message?.includes("429") || error.status === 429) {
+      throw new Error("API Quota Exceeded. The free tier of Gemini API has limits. \n\nTo fix this:\n1. Upgrade to a paid plan at ai.google.dev.\n2. If you just updated your key, you MUST go to Render -> Manual Deploy -> 'Clear Build Cache & Deploy' to pick up the changes.");
     }
     throw new Error("Failed to search medicine. Please try again.");
   }

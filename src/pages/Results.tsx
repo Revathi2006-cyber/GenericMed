@@ -936,6 +936,32 @@ export function Results() {
                 </div>
               )}
 
+              {item.onlinePrices && item.onlinePrices.length > 0 && (
+                <div className="mt-4 space-y-3 pt-4 border-t border-slate-200 dark:border-[#1E293B]">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-sm font-semibold flex items-center gap-1 text-slate-900 dark:text-white">
+                      <ShoppingCart className="w-4 h-4"/> Online Availability
+                    </h5>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {item.onlinePrices.map((p, i) => (
+                      <a key={i} href={p.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors border border-slate-200 dark:border-[#1E293B]">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-white p-1 shadow-sm border border-slate-100 dark:border-white/5">
+                            <PharmacyLogo url={p.logoUrl} domain={p.domain} name={p.pharmacy} />
+                          </div>
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">{p.pharmacy}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-emerald-500">₹{p.price}</span>
+                          <ExternalLink className="w-4 h-4 text-slate-500 dark:text-[#94A3B8]" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <RealTimePrices medicineName={item.genericName} />
             </div>
         ))}
@@ -945,7 +971,7 @@ export function Results() {
         <button 
           onClick={handleFindStores}
           disabled={isLocating}
-          className="flex items-center justify-center gap-2 w-full py-4 bg-[#00A3FF]/10 text-[#00A3FF] hover:bg-[#00A3FF]/20 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl transition-colors text-lg border border-[#00A3FF]/20"
+          className="flex items-center justify-center gap-2 w-full py-4 bg-[#00A3FF]/10 text-[#00A3FF] hover:bg-[#008BDB]/20 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl transition-colors text-lg border border-[#00A3FF]/20"
         >
           {isLocating ? (
             <Loader2 className="w-6 h-6 animate-spin" />
@@ -957,6 +983,14 @@ export function Results() {
         <p className="text-center text-xs text-slate-500 dark:text-[#94A3B8] mt-3">
           Opens Google Maps to find generic pharmacies near you.
         </p>
+      </div>
+
+      <div className="mt-12 mb-8 flex flex-col items-center justify-center gap-2 opacity-50">
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-[#94A3B8]">
+          <Activity className="w-3 h-3" />
+          GenericMed AI {APP_VERSION}
+        </div>
+        <div className="h-1 w-12 bg-gradient-to-r from-transparent via-[#00A3FF] to-transparent rounded-full"></div>
       </div>
 
       {/* Comparison Bar */}
